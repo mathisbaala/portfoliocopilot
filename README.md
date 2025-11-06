@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portfolio Copilot
 
-## Getting Started
+Portfolio Copilot est une application Next.js permettant d'analyser simplement les produits financiers à partir de leurs Documents d'Information Clé (DIC).
 
-First, run the development server:
+## 🚀 Stack technique
+
+- **Framework:** Next.js 15 (App Router)
+- **UI:** React 19, TypeScript
+- **Styling:** Tailwind CSS v4
+- **Composants:** shadcn/ui + Radix UI
+- **Animations:** framer-motion
+- **Icônes:** lucide-react
+- **Notifications:** sonner
+- **Validation:** zod
+- **Backend:** Supabase (Auth, Database, Storage)
+
+## 📦 Installation
+
+1. Cloner le projet
+2. Installer les dépendances:
+
+```bash
+npm install
+```
+
+3. Configurer les variables d'environnement:
+
+Copier `.env.example` vers `.env.local` et remplir les valeurs Supabase:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=votre_url_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anonyme_supabase
+```
+
+4. Configurer la base de données Supabase:
+
+Exécuter le script SQL `supabase-schema.sql` dans l'éditeur SQL de votre projet Supabase pour créer:
+- Le schéma `app` avec la table `documents`
+- Les politiques RLS (Row Level Security)
+- Le bucket de stockage `dic-documents`
+- Les politiques de stockage
+
+5. Lancer le serveur de développement:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000) dans votre navigateur.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Structure du projet
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── layout.tsx          # Layout racine avec Navbar, Footer, Toaster
+│   ├── page.tsx            # Page d'accueil (Home)
+│   ├── dashboard/
+│   │   └── page.tsx        # Dashboard (placeholder)
+│   └── login/
+│       └── page.tsx        # Page de connexion (magic link)
+├── components/
+│   ├── navbar.tsx          # Barre de navigation
+│   ├── footer.tsx          # Pied de page
+│   └── ui/                 # Composants shadcn/ui
+├── lib/
+│   ├── supabase-browser.ts # Client Supabase pour le navigateur
+│   ├── supabase-server.ts  # Client Supabase pour le serveur
+│   └── utils.ts            # Utilitaires (cn)
+└── middleware.ts           # Middleware Next.js (placeholder pour la protection de routes)
+```
 
-## Learn More
+## 🎨 Design
 
-To learn more about Next.js, take a look at the following resources:
+Le design suit une approche minimaliste blanc/bleu inspirée de Bitstack:
+- Fond blanc avec textes slate
+- Couleur primaire bleue (#2563eb - blue-600, #1d4ed8 - blue-700)
+- Navigation fixe avec backdrop blur
+- Cartes avec ombres douces et coins arrondis
+- Espacement généreux
+- Typographie Inter (via système)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔐 Authentification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+L'authentification utilise Supabase Auth avec des "magic links" (liens de connexion envoyés par email). 
+La page `/login` permet de s'authentifier. Le middleware peut être activé pour protéger les routes `/dashboard/*`.
 
-## Deploy on Vercel
+## 📝 Prochaines étapes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Version actuelle (v1): Squelette technique complet avec design épuré.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+À venir:
+- Upload de fichiers DIC (PDF)
+- Extraction automatique des données via IA
+- Analyse et synthèse des informations
+- Dashboard interactif avec indicateurs clés
+- Gestion de paiements (optionnel)
+
+## 🛠️ Scripts disponibles
+
+- `npm run dev` - Démarre le serveur de développement
+- `npm run build` - Compile l'application pour la production
+- `npm start` - Lance l'application en mode production
+- `npm run lint` - Vérifie le code avec ESLint
+
+## 📄 Licence
+
+Tous droits réservés © 2025 Portfolio Copilot
+

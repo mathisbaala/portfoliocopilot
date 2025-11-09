@@ -2,11 +2,8 @@
 create extension if not exists "uuid-ossp";
 create extension if not exists pgcrypto;
 
--- Schéma applicatif
-create schema if not exists app;
-
--- Table des documents DIC importés
-create table if not exists app.documents (
+-- Table des documents DIC importés (dans le schéma public)
+create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   filename text not null,
@@ -22,46 +19,46 @@ create table if not exists app.documents (
 );
 
 -- Index
-create index if not exists documents_user_id_idx on app.documents(user_id);
-create index if not exists documents_created_at_idx on app.documents(created_at desc);
-create index if not exists documents_extracted_gin on app.documents using gin (extracted);
+create index if not exists documents_user_id_idx on public.documents(user_id);
+create index if not exists documents_created_at_idx on public.documents(created_at desc);
+create index if not exists documents_extracted_gin on public.documents using gin (extracted);
 
 -- Trigger updated_at
-create or replace function app.touch_updated_at() returns trigger as $$
+create or replace function public.touch_updated_at() returns trigger as $$
 begin
   new.updated_at = now();
   return new;
 end; $$ language plpgsql;
 
-drop trigger if exists trg_documents_touch on app.documents;
+drop trigger if exists trg_documents_touch on public.documents;
 create trigger trg_documents_touch
-before update on app.documents
-for each row execute procedure app.touch_updated_at();
+before update on public.documents
+for each row execute procedure public.touch_updated_at();
 
 -- Activer RLS
-alter table app.documents enable row level security;
+alter table public.documents enable row level security;
 
 -- Politiques RLS
-drop policy if exists "doc_select_own" on app.documents;
-drop policy if exists "doc_insert_own" on app.documents;
-drop policy if exists "doc_update_own" on app.documents;
-drop policy if exists "doc_delete_own" on app.documents;
+drop policy if exists "doc_select_own" on public.documents;
+drop policy if exists "doc_insert_own" on public.documents;
+drop policy if exists "doc_update_own" on public.documents;
+drop policy if exists "doc_delete_own" on public.documents;
 
 create policy "doc_select_own"
-  on app.documents for select
+  on public.documents for select
   using (auth.uid() = user_id);
 
 create policy "doc_insert_own"
-  on app.documents for insert
+  on public.documents for insert
   with check (auth.uid() = user_id);
 
 create policy "doc_update_own"
-  on app.documents for update
+  on public.documents for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 create policy "doc_delete_own"
-  on app.documents for delete
+  on public.documents for delete
   using (auth.uid() = user_id);
 
 -- Bucket de stockage privé pour les DIC

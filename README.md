@@ -103,7 +103,33 @@ Version actuelle (v1): Squelette technique complet avec design épuré.
 - `npm start` - Lance l'application en mode production
 - `npm run lint` - Vérifie le code avec ESLint
 
-## 📄 Licence
+## � Travail Collaboratif
+
+**Pour les développeurs** : Consultez les guides dans `.github/` :
+
+- **[WORKFLOW.md](.github/WORKFLOW.md)** - Workflow Git complet (branches, merges, conflits)
+- **[TASKS.md](.github/TASKS.md)** - Répartition des tâches et statuts
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guide de contribution détaillé
+
+### 🌿 Workflow Rapide
+
+```bash
+# Matin - Récupérer les derniers changements
+git checkout main && git pull origin main
+git checkout -b feature/ma-feature  # ou git checkout feature/ma-feature
+git merge main
+
+# Pendant - Sauvegarder régulièrement
+git add . && git commit -m "feat: description" && git push origin feature/ma-feature
+
+# Soir - Merger quand c'est terminé
+git checkout main && git pull origin main
+git merge feature/ma-feature
+npm run build  # Tester !
+git push origin main
+```
+
+## �📄 Licence
 
 Tous droits réservés © 2025 Portfolio Copilot
 

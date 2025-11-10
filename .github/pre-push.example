@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Hook pre-push pour protéger la branche main
+# Place ce fichier dans .git/hooks/pre-push
+
+current_branch=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+
+if [ "$current_branch" = "main" ]; then
+    echo "🚨 ATTENTION: Vous êtes sur la branche MAIN"
+    echo ""
+    echo "Êtes-vous sûr de vouloir push sur main?"
+    echo "Assurez-vous que:"
+    echo "  ✅ npm run build fonctionne"
+    echo "  ✅ npm run lint est OK"
+    echo "  ✅ Vous avez testé votre code"
+    echo "  ✅ Vous avez prévenu l'équipe"
+    echo ""
+    read -p "Continuer? (yes/no): " -n 3 -r
+    echo
+    if [[ ! $REPLY =~ ^yes$ ]]; then
+        echo "❌ Push annulé"
+        exit 1
+    fi
+fi
+
+exit 0

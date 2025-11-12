@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle, Download, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import type { DICData } from "@/types/dic-data";
+import { saveExtraction } from "@/lib/storage";
 
 interface UploadedFile {
   file: File;
@@ -72,24 +74,31 @@ export default function UploadPage() {
   const processFile = async (uploadedFile: UploadedFile) => {
     try {
       // 1. Upload to Supabase Storage
-      updateFileStatus(uploadedFile.id, "uploading", 30);
+      updateFileStatus(uploadedFile.id, "uploading", 10);
+      toast.info(`📤 Upload de ${uploadedFile.file.name}...`);
       
       const formData = new FormData();
       formData.append("file", uploadedFile.file);
+
+      updateFileStatus(uploadedFile.id, "uploading", 30);
 
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
+      const uploadData = await uploadResponse.json();
+
       if (!uploadResponse.ok) {
-        throw new Error("Erreur lors de l'upload");
+        throw new Error(uploadData.error || "Erreur lors de l'upload");
       }
 
-      const { fileUrl } = await uploadResponse.json();
+      const { fileUrl } = uploadData;
+      updateFileStatus(uploadedFile.id, "uploading", 50);
 
       // 2. Extract data with AI
       updateFileStatus(uploadedFile.id, "extracting", 60);
+      toast.info(`🤖 Analyse IA en cours...`);
 
       const extractResponse = await fetch("/api/extract", {
         method: "POST",
@@ -97,26 +106,42 @@ export default function UploadPage() {
         body: JSON.stringify({ fileUrl, fileName: uploadedFile.file.name }),
       });
 
+      const extractData = await extractResponse.json();
+
       if (!extractResponse.ok) {
-        throw new Error("Erreur lors de l'extraction");
+        throw new Error(extractData.error || extractData.details || "Erreur lors de l'extraction");
       }
 
-      const data: DICData = await extractResponse.json();
+      // Check if extraction was successful
+      if (extractData.error) {
+        throw new Error(extractData.error);
+      }
+
+      const data: DICData = extractData;
+      updateFileStatus(uploadedFile.id, "extracting", 90);
 
       // 3. Success
       updateFileStatus(uploadedFile.id, "success", 100, data);
-      toast.success(`✅ ${uploadedFile.file.name} analysé avec succès !`);
+      
+      // Save to localStorage
+      saveExtraction(uploadedFile.file.name, data);
+      
+      const confidence = ((data.extraction?.confidence || 0) * 100).toFixed(0);
+      toast.success(`✅ ${uploadedFile.file.name} analysé avec succès ! (confiance: ${confidence}%)`);
 
     } catch (error) {
       console.error("Error processing file:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      
       updateFileStatus(
         uploadedFile.id,
         "error",
         0,
         undefined,
-        error instanceof Error ? error.message : "Erreur inconnue"
+        errorMessage
       );
-      toast.error(`❌ Erreur : ${uploadedFile.file.name}`);
+      
+      toast.error(`❌ ${uploadedFile.file.name}: ${errorMessage}`);
     }
   };
 
@@ -165,21 +190,30 @@ export default function UploadPage() {
       </div>
 
       {/* Drop Zone */}
-      <Card
-        className={`border-2 border-dashed transition-all duration-200 ${
-          isDragging
-            ? "border-blue-600 bg-blue-50"
-            : "border-slate-300 hover:border-blue-400"
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <CardContent className="py-16">
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-white" />
-            </div>
+        <Card
+          className={`border-2 border-dashed transition-all duration-300 ${
+            isDragging
+              ? "border-blue-600 bg-blue-50 scale-[1.02] shadow-lg"
+              : "border-slate-300 hover:border-blue-400 hover:shadow-md"
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <CardContent className="py-16">
+            <div className="text-center space-y-4">
+              <motion.div
+                className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center"
+                animate={isDragging ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}}
+                transition={{ duration: 0.5 }}
+              >
+                <Upload className="w-8 h-8 text-white" />
+              </motion.div>
             <div>
               <h3 className="text-xl font-semibold text-slate-900 mb-2">
                 Glissez-déposez vos fichiers PDF ici
@@ -207,16 +241,45 @@ export default function UploadPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* Files List */}
-      {files.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Fichiers ({files.length})
-          </h2>
+      <AnimatePresence mode="popLayout">
+        {files.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900">
+                Fichiers ({files.length})
+              </h2>
+              {files.some(f => f.status === "success") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    files.filter(f => f.status === "success").forEach(f => downloadJSON(f));
+                    toast.success("Téléchargement de tous les fichiers réussis");
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Tout télécharger
+                </Button>
+              )}
+            </div>
 
-          {files.map((file) => (
-            <Card key={file.id} className="hover:shadow-md transition-shadow">
+            {files.map((file, index) => (
+              <motion.div
+                key={file.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   {/* Icon */}
@@ -341,9 +404,11 @@ export default function UploadPage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

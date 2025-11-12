@@ -1,28 +1,24 @@
 /**
  * API Route: /api/extract
  * 
- * EXTRACTION RÉELLE avec AWS Textract + OpenAI GPT-4o
+ * EXTRACTION AVEC GPT-4o VISION UNIQUEMENT
  * 
- * Flow:
+ * Flow simplifié:
  * 1. Télécharge le PDF depuis Supabase Storage
- * 2. Utilise AWS Textract pour extraire tout le texte du PDF
- * 3. Envoie le texte à GPT-4o pour structurer les données en JSON DICData
+ * 2. Convertit en base64
+ * 3. Envoie à GPT-4o Vision pour extraction et structuration directe
  * 4. Retourne les données structurées
+ * 
+ * Avantages:
+ * - Pas besoin d'AWS (un seul fournisseur: OpenAI)
+ * - Setup ultra-simple
+ * - Comprend mieux le contexte et la structure
+ * - Un seul appel API au lieu de 2
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { TextractClient, DetectDocumentTextCommand } from "@aws-sdk/client-textract";
 import OpenAI from "openai";
 import type { DICData } from "@/types/dic-data";
-
-// Initialize AWS Textract client
-const textractClient = new TextractClient({
-  region: process.env.AWS_REGION || "eu-west-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -44,131 +40,62 @@ export async function POST(request: NextRequest) {
     console.log("📥 Téléchargement du PDF depuis Supabase...");
     const pdfResponse = await fetch(fileUrl);
     const arrayBuffer = await pdfResponse.arrayBuffer();
-    const pdfBytes = new Uint8Array(arrayBuffer);
+    const base64Pdf = Buffer.from(arrayBuffer).toString('base64');
     
-    // Step 2: Extract text from PDF using AWS Textract
-    console.log("📄 Extraction du texte avec AWS Textract...");
+    console.log(`📄 PDF converti en base64 (${Math.round(arrayBuffer.byteLength / 1024)} KB)`);
     
-    const textractCommand = new DetectDocumentTextCommand({
-      Document: {
-        Bytes: pdfBytes,
-      },
-    });
-
-    const textractResponse = await textractClient.send(textractCommand);
+    // Step 2: Use GPT-4o Vision to extract and structure data directly from PDF
+    console.log("🤖 Extraction et structuration avec GPT-4o Vision...");
     
-    // Combine all detected text blocks
-    const extractedText = textractResponse.Blocks
-      ?.filter((block) => block.BlockType === "LINE")
-      .map((block) => block.Text)
-      .join("\n") || "";
-
-    if (!extractedText || extractedText.length < 50) {
-      return NextResponse.json(
-        { error: "Le PDF ne contient pas assez de texte exploitable" },
-        { status: 400 }
-      );
-    }
-
-    console.log(`📝 Texte extrait: ${extractedText.length} caractères`);
-    
-    // Step 3: Use OpenAI GPT-4o to structure the data
-    console.log("🤖 Structuration des données avec GPT-4o...");
-    
-    const prompt = `Tu es un expert en analyse de Documents d'Information Clé (DIC) et documents financiers.
-
-Analyse ce document financier et extrait TOUTES les informations disponibles au format JSON exact.
+    const userPrompt = `Analyse ce document financier PDF et extrait TOUTES les informations en JSON.
 
 IMPORTANT:
-- Extrait UNIQUEMENT les données qui sont RÉELLEMENT présentes dans le document
-- Si une information n'est pas trouvée, mets null
-- Les pourcentages doivent être des nombres (ex: 1.5, pas "1.5%")
-- Sois précis et extrais les chiffres EXACTS du document
-- Pour le niveau de risque, cherche "Indicateur de Risque" ou "SRI" (échelle 1-7)
-- Pour les frais, cherche "Frais courants", "Frais de gestion", "Frais d'entrée/sortie"
-- Pour l'horizon, cherche "Durée de placement recommandée" ou "Horizon d'investissement"
+- Extrait UNIQUEMENT les données RÉELLEMENT présentes
+- Si information absente → null
+- Pourcentages en nombres (ex: 1.5)
+- Cherche "Indicateur de Risque" ou "SRI" (1-7)
+- Cherche "Frais courants", "Frais de gestion"
+- Cherche "Durée de placement recommandée"
 
-Structure JSON attendue:
+JSON attendu:
 {
-  "metadata": {
-    "documentName": "${fileName}",
-    "uploadDate": "${new Date().toISOString()}",
-    "extractionDate": "${new Date().toISOString()}",
-    "documentType": "SICAV ou FCP ou ETF ou Autre (selon le document)"
-  },
-  "general": {
-    "emetteur": "nom de la société de gestion trouvé dans le document",
-    "nomProduit": "nom complet du produit/fonds",
-    "isin": "code ISIN si présent",
-    "categorie": "catégorie exacte (Actions, Obligations, Monétaire, Mixte, etc.)",
-    "devise": "EUR ou USD ou autre devise trouvée",
-    "dateCreation": "date de création du fonds si disponible"
-  },
-  "risque": {
-    "niveau": nombre entre 1 et 7 (SRI - Synthetic Risk Indicator),
-    "description": "description du risque trouvée dans le document",
-    "volatilite": "information sur la volatilité si disponible"
-  },
-  "frais": {
-    "entree": pourcentage ou null,
-    "sortie": pourcentage ou null,
-    "gestionAnnuels": pourcentage (frais courants/frais de gestion),
-    "courtage": pourcentage ou null,
-    "total": pourcentage total si mentionné ou null,
-    "details": "détails textuels sur les frais"
-  },
-  "horizon": {
-    "recommande": "texte exact de la durée recommandée (ex: '5 ans minimum')",
-    "annees": nombre d'années extrait ou null,
-    "description": "description de l'horizon de placement"
-  },
-  "scenarios": {
-    "defavorable": { "montant": montant en euros, "pourcentage": % de variation },
-    "intermediaire": { "montant": montant en euros, "pourcentage": % de variation },
-    "favorable": { "montant": montant en euros, "pourcentage": % de variation },
-    "baseInvestissement": montant de base pour les scénarios (généralement 10000)
-  },
-  "strategie": {
-    "objectif": "objectif d'investissement du fonds",
-    "politique": "politique d'investissement détaillée",
-    "zoneGeographique": "zone géographique d'investissement",
-    "secteurs": ["liste", "des", "secteurs", "si", "mentionnés"]
-  },
-  "complementaires": {
-    "liquidite": "conditions de rachat (quotidien, hebdomadaire, etc.)",
-    "fiscalite": "informations fiscales (PEA, assurance-vie, etc.)",
-    "garantie": "oui ou non - garantie en capital",
-    "profilInvestisseur": "profil investisseur cible"
-  },
-  "extraction": {
-    "success": true,
-    "confidence": score entre 0 et 1 (ton niveau de confiance dans l'extraction),
-    "errors": [],
-    "warnings": ["liste des avertissements si certaines données sont manquantes ou incertaines"]
-  }
+  "metadata": {"documentName": "${fileName}", "uploadDate": "${new Date().toISOString()}", "extractionDate": "${new Date().toISOString()}", "documentType": "SICAV/FCP/ETF/Autre"},
+  "general": {"emetteur": "...", "nomProduit": "...", "isin": "...", "categorie": "...", "devise": "EUR", "dateCreation": "..."},
+  "risque": {"niveau": 1-7, "description": "...", "volatilite": "..."},
+  "frais": {"entree": null, "sortie": null, "gestionAnnuels": 0, "courtage": null, "total": null, "details": "..."},
+  "horizon": {"recommande": "...", "annees": null, "description": "..."},
+  "scenarios": {"defavorable": {"montant": 0, "pourcentage": 0}, "intermediaire": {"montant": 0, "pourcentage": 0}, "favorable": {"montant": 0, "pourcentage": 0}, "baseInvestissement": 10000},
+  "strategie": {"objectif": "...", "politique": "...", "zoneGeographique": "...", "secteurs": []},
+  "complementaires": {"liquidite": "...", "fiscalite": "...", "garantie": "...", "profilInvestisseur": "..."},
+  "extraction": {"success": true, "confidence": 0.0-1.0, "errors": [], "warnings": []}
 }
 
-Réponds UNIQUEMENT avec le JSON, sans markdown, sans texte additionnel.
-
-DOCUMENT À ANALYSER:
-
-${extractedText}`;
+Réponds UNIQUEMENT avec le JSON.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "Tu es un assistant expert en analyse de documents financiers français (DIC, DICI, KID). Tu réponds toujours avec du JSON valide et structuré. Tu extrais UNIQUEMENT les données réellement présentes dans le document."
+          content: "Tu es un assistant expert en analyse de documents financiers français (DIC, DICI, KID). Tu réponds UNIQUEMENT avec du JSON valide."
         },
         {
           role: "user",
-          content: prompt
+          content: [
+            { type: "text", text: userPrompt },
+            { 
+              type: "image_url", 
+              image_url: { 
+                url: `data:application/pdf;base64,${base64Pdf}`,
+                detail: "high"
+              }
+            }
+          ]
         }
       ],
-      temperature: 0.1, // Low temperature for consistent extraction
-      response_format: { type: "json_object" }, // Force JSON response
-      max_tokens: 4000 // Allow long responses for detailed extraction
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      max_tokens: 4096
     });
 
     const responseText = completion.choices[0].message.content;

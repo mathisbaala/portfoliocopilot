@@ -32,13 +32,8 @@ Créer `.env.local` avec les variables suivantes:
 NEXT_PUBLIC_SUPABASE_URL=votre_url_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anonyme_supabase
 
-# OpenAI (pour extraction intelligente)
+# OpenAI (pour extraction intelligente avec GPT-4o Vision)
 OPENAI_API_KEY=votre_cle_openai
-
-# AWS Textract (pour extraction PDF)
-AWS_ACCESS_KEY_ID=votre_access_key_id
-AWS_SECRET_ACCESS_KEY=votre_secret_access_key
-AWS_REGION=eu-west-3
 ```
 
 4. Configurer la base de données Supabase:
@@ -64,7 +59,7 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── upload/route.ts     # Upload PDF vers Supabase Storage
-│   │   └── extract/route.ts    # Extraction AWS Textract + GPT-4o
+│   │   └── extract/route.ts    # Extraction GPT-4o Vision
 │   ├── dashboard/
 │   │   ├── page.tsx            # Dashboard
 │   │   └── upload/page.tsx     # Page d'upload de PDF
@@ -98,15 +93,16 @@ Le design suit une approche minimaliste blanc/bleu inspirée de Bitstack:
 L'authentification utilise Supabase Auth avec des "magic links" (liens de connexion envoyés par email). 
 La page `/login` permet de s'authentifier. Le middleware peut être activé pour protéger les routes `/dashboard/*`.
 
-## � Extraction de documents financiers
+## 📄 Extraction de documents financiers
 
-L'application utilise **AWS Textract + OpenAI GPT-4o** pour extraire automatiquement les données des Documents d'Information Clé (DIC).
+L'application utilise **OpenAI GPT-4o Vision** pour extraire automatiquement les données des Documents d'Information Clé (DIC).
 
 ### Fonctionnalités
 - ✅ Upload de PDF via drag & drop
-- ✅ Extraction OCR avec AWS Textract
-- ✅ Structuration intelligente avec GPT-4o
+- ✅ Extraction directe avec GPT-4o Vision (OCR intégré)
+- ✅ Structuration intelligente en un seul appel API
 - ✅ Export JSON des données extraites
+- ✅ Supporte PDFs texte ET scannés
 
 ### Données extraites
 - Émetteur, nom du produit, ISIN
@@ -116,11 +112,11 @@ L'application utilise **AWS Textract + OpenAI GPT-4o** pour extraire automatique
 - Scénarios de performance
 - Stratégie d'investissement
 
-### Configuration AWS
-1. Créer compte AWS
-2. Créer utilisateur IAM avec permission `AmazonTextractFullAccess`
-3. Récupérer Access Key ID et Secret Access Key
-4. Ajouter dans `.env.local`
+### Avantages GPT-4o Vision
+- ✅ Un seul fournisseur (OpenAI)
+- ✅ Setup ultra-simple (pas de compte AWS)
+- ✅ Comprend mieux le contexte
+- ✅ OCR automatique intégré
 
 ## 📝 Prochaines étapes
 

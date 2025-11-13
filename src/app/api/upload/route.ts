@@ -22,44 +22,30 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
-    // Validation 1: File exists
+    // Validations
     if (!file) {
-      console.error("❌ Upload failed: No file provided");
-      return NextResponse.json(
-        { error: "Aucun fichier fourni" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    // Validation 2: File type
     if (file.type !== ALLOWED_FILE_TYPE) {
-      console.error(`❌ Upload failed: Invalid file type (${file.type})`);
-      return NextResponse.json(
-        { error: `Seuls les fichiers PDF sont acceptés (type reçu: ${file.type})` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés" }, { status: 400 });
     }
 
-    // Validation 3: File size
     if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-      console.error(`❌ Upload failed: File too large (${sizeMB}MB)`);
       return NextResponse.json(
-        { error: `Fichier trop volumineux (${sizeMB}MB, max 10MB)` },
+        { error: `Fichier trop volumineux (max 10MB)` },
         { status: 400 }
       );
     }
 
-    // Validation 4: File name safety
     if (!/^[\w\-. ]+\.pdf$/i.test(file.name)) {
-      console.error(`❌ Upload failed: Invalid file name (${file.name})`);
       return NextResponse.json(
-        { error: "Nom de fichier invalide. Utilisez uniquement des lettres, chiffres et tirets." },
+        { error: "Nom de fichier invalide" },
         { status: 400 }
       );
     }
 
-    console.log(`📤 Uploading file: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    console.log(`📤 ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
 
     // Generate unique filename
     const timestamp = Date.now();
@@ -70,72 +56,42 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Upload to Supabase Storage with retry logic
-    let uploadAttempts = 0;
-    const MAX_RETRIES = 3;
-    let uploadError: Error | null = null;
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("dic-documents")
+      .upload(fileName, buffer, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
 
-    while (uploadAttempts < MAX_RETRIES) {
-      try {
-        const { data, error } = await supabase.storage
-          .from("dic-documents")
-          .upload(fileName, buffer, {
-            contentType: "application/pdf",
-            upsert: false,
-          });
-
-        if (error) {
-          throw error;
-        }
-
-        // Success - Create a signed URL that expires in 1 hour
-        const { data: signedUrlData, error: signedError } = await supabase.storage
-          .from("dic-documents")
-          .createSignedUrl(fileName, 3600); // 3600 seconds = 1 hour
-
-        if (signedError || !signedUrlData) {
-          console.error("❌ Failed to create signed URL:", signedError);
-          throw new Error("Failed to create signed URL for file access");
-        }
-
-        console.log(`✅ Upload successful: ${fileName}`);
-
-        return NextResponse.json({
-          success: true,
-          fileName,
-          fileUrl: signedUrlData.signedUrl, // Use signed URL instead of public URL
-          filePath: data.path,
-          fileSize: file.size,
-        });
-
-      } catch (err) {
-        uploadAttempts++;
-        uploadError = err as Error;
-        console.error(`❌ Upload attempt ${uploadAttempts}/${MAX_RETRIES} failed:`, err);
-        
-        if (uploadAttempts < MAX_RETRIES) {
-          // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
-        }
-      }
+    if (error) {
+      throw error;
     }
 
-    // All retries failed
-    console.error("❌ Upload failed after all retries:", uploadError);
-    return NextResponse.json(
-      { 
-        error: "Erreur lors de l'upload vers le stockage",
-        details: uploadError?.message || "Erreur inconnue",
-        retries: MAX_RETRIES
-      },
-      { status: 500 }
-    );
+    // Create signed URL (1 hour expiration)
+    const { data: signedUrlData, error: signedError } = await supabase.storage
+      .from("dic-documents")
+      .createSignedUrl(fileName, 3600);
+
+    if (signedError || !signedUrlData) {
+      throw new Error("Failed to create signed URL");
+    }
+
+    console.log(`✅ ${fileName}`);
+
+    return NextResponse.json({
+      success: true,
+      fileName,
+      fileUrl: signedUrlData.signedUrl,
+      filePath: data.path,
+      fileSize: file.size,
+    });
 
   } catch (error) {
-    console.error("❌ Unexpected upload error:", error);
+    console.error("❌ Upload error:", error);
     return NextResponse.json(
       { 
-        error: "Erreur serveur lors de l'upload",
+        error: "Erreur lors de l'upload",
         details: error instanceof Error ? error.message : "Erreur inconnue"
       },
       { status: 500 }

@@ -21,126 +21,116 @@ export async function POST(request: NextRequest) {
   try {
     const { fileUrl, fileName } = await request.json();
     
-    console.log("Extraction:", fileName);
-    console.log("File URL:", fileUrl);
+    if (!fileUrl || !fileName) {
+      throw new Error("Missing fileUrl or fileName");
+    }
     
+    console.log(`📄 Extraction: ${fileName}`);
+    
+    // Download PDF
     const pdfResponse = await fetch(fileUrl);
-    console.log("PDF Response status:", pdfResponse.status);
-    console.log("PDF Response content-type:", pdfResponse.headers.get("content-type"));
-    
     if (!pdfResponse.ok) {
-      throw new Error(`Failed to download PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
+      throw new Error(`PDF download failed: ${pdfResponse.status}`);
     }
     
-    const arrayBuffer = await pdfResponse.arrayBuffer();
-    const pdfBuffer = Buffer.from(arrayBuffer);
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
     
-    console.log("PDF Buffer size:", pdfBuffer.length, "bytes");
-    console.log("PDF Magic bytes:", pdfBuffer.slice(0, 8).toString('hex'));
-    console.log("PDF Last bytes:", pdfBuffer.slice(-8).toString('hex'));
-    
-    // Verify it's a valid PDF
+    // Validate PDF format
     if (!pdfBuffer.slice(0, 4).toString().startsWith('%PDF')) {
-      throw new Error("Invalid PDF format - file does not start with %PDF header");
+      throw new Error("Invalid PDF format");
     }
     
-    // Check if PDF ends with EOF marker
-    const pdfEnd = pdfBuffer.slice(-1024).toString('latin1');
-    if (!pdfEnd.includes('%%EOF')) {
-      console.warn("⚠️ Warning: PDF may be truncated (no %%EOF marker found)");
-    }
-    
-    console.log("AWS Textract...");
-    console.log("Textract region:", process.env.AWS_REGION || "eu-west-1");
+    console.log(`📊 PDF: ${(pdfBuffer.length / 1024).toFixed(0)}KB`);
     
     let extractedText = "";
     
-    // Try AWS Textract first
+    // Try AWS Textract first (best quality)
     try {
-      // Try with Uint8Array instead of Buffer (AWS SDK sometimes prefers this)
-      const uint8Array = new Uint8Array(pdfBuffer);
-      
       const textractResponse = await textract.send(
         new DetectDocumentTextCommand({
-          Document: { Bytes: uint8Array },
+          Document: { Bytes: new Uint8Array(pdfBuffer) },
         })
       );
       
-      extractedText = textractResponse.Blocks?.filter(
-        (block) => block.BlockType === "LINE"
-      )
-        .map((block) => block.Text)
+      extractedText = textractResponse.Blocks
+        ?.filter(block => block.BlockType === "LINE" && block.Text)
+        .map(block => block.Text!)
         .join(" ") || "";
         
-      console.log("✅ Textract success:", extractedText.split(/\s+/).length, "mots");
+      console.log(`✅ Textract: ${extractedText.split(/\s+/).length} mots`);
       
-    } catch (textractError: any) {
-      console.warn("⚠️ Textract failed:", textractError.message);
-      console.log("🔄 Fallback: Extraction texte brut du PDF...");
-      
+    } catch (textractError) {
       // Fallback: Extract raw text from PDF buffer
-      // This is a simple approach that works for text-based PDFs
+      const errorMsg = textractError instanceof Error ? textractError.message : 'Unknown error';
+      console.log(`⚠️ Textract failed, using fallback`);
+      
       const pdfText = pdfBuffer.toString('latin1');
-      
-      // Extract text between stream objects (simplified PDF text extraction)
       const textMatches = pdfText.match(/\(([^)]+)\)/g) || [];
-      const rawTexts = textMatches.map(match => {
-        // Remove parentheses and decode basic PDF encoding
-        let text = match.slice(1, -1);
-        // Decode common PDF escapes
-        text = text.replace(/\\n/g, ' ');
-        text = text.replace(/\\r/g, ' ');
-        text = text.replace(/\\t/g, ' ');
-        text = text.replace(/\\\(/g, '(');
-        text = text.replace(/\\\)/g, ')');
-        text = text.replace(/\\\\/g, '\\');
-        return text;
-      });
       
-      extractedText = rawTexts.join(' ').replace(/\s+/g, ' ').trim();
+      extractedText = textMatches
+        .map(match => match.slice(1, -1)
+          .replace(/\\n/g, ' ')
+          .replace(/\\r/g, ' ')
+          .replace(/\\t/g, ' ')
+          .replace(/\\\(/g, '(')
+          .replace(/\\\)/g, ')')
+          .replace(/\\\\/g, '\\')
+        )
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
       
-      if (!extractedText || extractedText.length < 100) {
+      if (extractedText.length < 100) {
         throw new Error(
-          `Impossible d'extraire le texte de ce PDF. ` +
-          `Le PDF est peut-être vide, scanné (image), ou dans un format non standard. ` +
-          `Essayez de réexporter le PDF avec Adobe Acrobat. ` +
-          `Détails techniques Textract: ${textractError.message}`
+          "PDF extraction failed. Le PDF est peut-être scanné (image) ou vide. " +
+          `Détails: ${errorMsg}`
         );
       }
       
-      console.log("✅ Fallback extraction success:", extractedText.length, "caractères");
+      console.log(`✅ Fallback: ${extractedText.length} caractères`);
     }
+    
+    // Optimize text for GPT-4o (limit to 12000 chars for faster processing)
+    const optimizedText = extractedText.slice(0, 12000);
+    
+    console.log(`🤖 GPT-4o structuration...`);
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "Expert en documents financiers français. Réponds en JSON valide uniquement.",
+          content: "Tu es un expert en analyse de documents financiers français (DIC/DICI/PRIIPS). Extrait les données clés et réponds en JSON valide uniquement. Sois précis et concis."
         },
         {
           role: "user",
-          content: `Analyse et extrait les données:
+          content: `Extrait les données de ce document financier:
 
-TEXTE:
-${extractedText.slice(0, 15000)}
+${optimizedText}
 
-FORMAT JSON:
-{"metadata":{"documentName":"${fileName}","uploadDate":"${new Date().toISOString()}","extractionDate":"${new Date().toISOString()}","documentType":"SICAV"},"general":{"emetteur":"","nomProduit":"","isin":null,"categorie":"","devise":"EUR","dateCreation":null},"risque":{"niveau":1,"description":"","volatilite":null},"frais":{"entree":null,"sortie":null,"gestionAnnuels":0,"courtage":null,"total":null,"details":null},"horizon":{"recommande":"","annees":null,"description":null},"scenarios":{"defavorable":{"montant":0,"pourcentage":0},"intermediaire":{"montant":0,"pourcentage":0},"favorable":{"montant":0,"pourcentage":0},"baseInvestissement":10000},"strategie":{"objectif":"","politique":"","zoneGeographique":null,"secteurs":[]},"complementaires":{"liquidite":null,"fiscalite":null,"garantie":null,"profilInvestisseur":null},"extraction":{"success":true,"confidence":0.8,"errors":[],"warnings":[]}}
-
-Réponds UNIQUEMENT avec le JSON.`,
-        },
+Réponds avec ce JSON exact (remplace les valeurs):
+{
+  "metadata":{"documentName":"${fileName}","uploadDate":"${new Date().toISOString()}","extractionDate":"${new Date().toISOString()}","documentType":"SICAV"},
+  "general":{"emetteur":"","nomProduit":"","isin":"","categorie":"","devise":"EUR","dateCreation":""},
+  "risque":{"niveau":4,"description":"","volatilite":""},
+  "frais":{"entree":0,"sortie":0,"gestionAnnuels":0,"courtage":0,"total":0,"details":""},
+  "horizon":{"recommande":"5 ans","annees":5,"description":""},
+  "scenarios":{"defavorable":{"montant":0,"pourcentage":0},"intermediaire":{"montant":0,"pourcentage":0},"favorable":{"montant":0,"pourcentage":0},"baseInvestissement":10000},
+  "strategie":{"objectif":"","politique":"","zoneGeographique":"","secteurs":[]},
+  "complementaires":{"liquidite":"","fiscalite":"","garantie":"Non","profilInvestisseur":""},
+  "extraction":{"success":true,"confidence":0.9,"errors":[],"warnings":[]}
+}`
+        }
       ],
-      temperature: 0.1,
+      temperature: 0,
       response_format: { type: "json_object" },
-      max_tokens: 4096,
+      max_tokens: 2048,
     });
     
-    const responseText = completion.choices[0].message.content!;
-    const extractedData: DICData = JSON.parse(responseText);
+    const extractedData: DICData = JSON.parse(completion.choices[0].message.content!);
     
     const duration = Date.now() - startTime;
-    console.log("Extraction OK:", duration, "ms");
+    console.log(`✅ Terminé: ${duration}ms`);
     
     return NextResponse.json({
       ...extractedData,

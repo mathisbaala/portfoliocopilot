@@ -121,23 +121,37 @@ INSTRUCTIONS STRICTES:
         },
         {
           role: "user",
-          content: `Analyse ce document financier et extrait TOUTES les données disponibles:
+          content: `EXTRAIT TOUTES les informations de ce document financier (DIC/KID/PRIIPS).
 
-TEXTE DU DOCUMENT:
+===== TEXTE DU DOCUMENT =====
 ${optimizedText}
+===== FIN DU TEXTE =====
 
-INSTRUCTIONS D'EXTRACTION:
-- Émetteur: nom de la société de gestion (ex: Amundi, BNP Paribas, Axa)
-- Nom produit: nom complet du fonds/produit
-- ISIN: code à 12 caractères commençant par FR
-- Catégorie: type d'investissement (ex: Actions, Obligations, Diversifié)
-- Risque niveau: chiffre de 1 à 7 (cherche "indicateur" ou "SRI")
-- Frais: tous les pourcentages de frais mentionnés
-- Horizon: durée recommandée (ex: "5 ans", "10 ans")
-- Scénarios: montants et rendements pour chaque scénario (défavorable, intermédiaire, favorable)
-- Stratégie: objectif et politique d'investissement
+TU DOIS EXTRAIRE LES VRAIES VALEURS du texte ci-dessus. NE METS JAMAIS de placeholders comme "NOM_SOCIETE", "CHIFFRE", etc.
 
-RÉPONDS AVEC CE JSON (REMPLI avec les données trouvées):
+EXEMPLES DE CE QU'ON ATTEND:
+
+✅ BON: "emetteur": "Amundi Asset Management"
+❌ MAUVAIS: "emetteur": "NOM_SOCIETE_GESTION"
+
+✅ BON: "niveau": 4
+❌ MAUVAIS: "niveau": "CHIFFRE_1_A_7"
+
+✅ BON: "gestionAnnuels": 1.85
+❌ MAUVAIS: "gestionAnnuels": "POURCENTAGE"
+
+CHAMPS À EXTRAIRE (avec les VRAIES valeurs du document):
+
+1. ÉMETTEUR: Cherche "société de gestion", "émetteur", souvent au début
+2. NOM PRODUIT: Titre principal du document
+3. ISIN: Code format FR0010314401 (FR suivi de 10 chiffres)
+4. CATÉGORIE: Actions, Obligations, Monétaire, Diversifié, etc.
+5. RISQUE NIVEAU: Nombre de 1 à 7 (cherche "indicateur de risque", "SRI", échelle avec un chiffre encerclé)
+6. FRAIS: Pourcentages exacts (ex: 1.85, 0.5, 2.0)
+7. HORIZON: Nombre d'années recommandées (ex: "5 ans", "8 ans")
+8. SCÉNARIOS: Montants et pourcentages dans les tableaux de performance
+
+RÉPONDS AVEC CE JSON (REMPLIS avec les VRAIES données extraites):
 {
   "metadata": {
     "documentName": "${fileName}",
@@ -146,57 +160,57 @@ RÉPONDS AVEC CE JSON (REMPLI avec les données trouvées):
     "documentType": "SICAV"
   },
   "general": {
-    "emetteur": "NOM_SOCIETE_GESTION",
-    "nomProduit": "NOM_COMPLET_PRODUIT",
-    "isin": "CODE_ISIN",
-    "categorie": "CATEGORIE",
+    "emetteur": "trouve le nom réel de la société de gestion",
+    "nomProduit": "trouve le nom réel du produit",
+    "isin": "trouve le vrai code ISIN",
+    "categorie": "trouve la vraie catégorie",
     "devise": "EUR",
-    "dateCreation": "DATE_SI_PRESENTE"
+    "dateCreation": null
   },
   "risque": {
-    "niveau": CHIFFRE_1_A_7,
-    "description": "DESCRIPTION_RISQUE",
-    "volatilite": "INFO_VOLATILITE"
+    "niveau": 4,
+    "description": "trouve la vraie description du risque",
+    "volatilite": null
   },
   "frais": {
-    "entree": POURCENTAGE_OU_NULL,
-    "sortie": POURCENTAGE_OU_NULL,
-    "gestionAnnuels": POURCENTAGE,
-    "courtage": POURCENTAGE_OU_NULL,
-    "total": POURCENTAGE_TOTAL,
-    "details": "DETAILS_FRAIS"
+    "entree": 0,
+    "sortie": 0,
+    "gestionAnnuels": 1.85,
+    "courtage": null,
+    "total": 2.0,
+    "details": "trouve les vrais détails"
   },
   "horizon": {
-    "recommande": "X ans",
-    "annees": NOMBRE_ANNEES,
-    "description": "DESCRIPTION"
+    "recommande": "5 ans",
+    "annees": 5,
+    "description": "trouve la vraie description de l'horizon"
   },
   "scenarios": {
     "defavorable": {
-      "montant": MONTANT,
-      "pourcentage": RENDEMENT_POURCENTAGE
+      "montant": 8500,
+      "pourcentage": -15.0
     },
     "intermediaire": {
-      "montant": MONTANT,
-      "pourcentage": RENDEMENT_POURCENTAGE
+      "montant": 10800,
+      "pourcentage": 8.0
     },
     "favorable": {
-      "montant": MONTANT,
-      "pourcentage": RENDEMENT_POURCENTAGE
+      "montant": 13200,
+      "pourcentage": 32.0
     },
     "baseInvestissement": 10000
   },
   "strategie": {
-    "objectif": "OBJECTIF_INVESTISSEMENT",
-    "politique": "POLITIQUE_GESTION",
-    "zoneGeographique": "ZONE_GEO",
-    "secteurs": ["SECTEUR1", "SECTEUR2"]
+    "objectif": "trouve le vrai objectif d'investissement dans le texte",
+    "politique": "trouve la vraie politique d'investissement",
+    "zoneGeographique": "trouve la zone géographique",
+    "secteurs": ["trouve", "les", "vrais", "secteurs"]
   },
   "complementaires": {
-    "liquidite": "CONDITIONS_RACHAT",
-    "fiscalite": "INFO_FISCALE",
-    "garantie": "Oui/Non",
-    "profilInvestisseur": "PROFIL_CIBLE"
+    "liquidite": "trouve les vraies conditions de rachat",
+    "fiscalite": "trouve les infos fiscales si présentes",
+    "garantie": "Non",
+    "profilInvestisseur": "trouve le vrai profil d'investisseur cible"
   },
   "extraction": {
     "success": true,
@@ -204,7 +218,10 @@ RÉPONDS AVEC CE JSON (REMPLI avec les données trouvées):
     "errors": [],
     "warnings": []
   }
-}`
+}
+
+IMPORTANT: Remplace TOUS les textes "trouve..." par les VRAIES valeurs extraites du document.
+Si une info n'existe pas dans le texte, mets null ou une chaîne vide "", mais JAMAIS de placeholder.`
         }
       ],
       temperature: 0.1,
@@ -213,6 +230,15 @@ RÉPONDS AVEC CE JSON (REMPLI avec les données trouvées):
     });
     
     const extractedData: DICData = JSON.parse(completion.choices[0].message.content!);
+    
+    // Detect placeholders (BAD extraction)
+    const jsonString = JSON.stringify(extractedData);
+    const hasPlaceholders = /NOM_|CHIFFRE|POURCENTAGE|MONTANT|DESCRIPTION|OBJECTIF|POLITIQUE|ZONE_|SECTEUR\d|CONDITIONS|INFO_|PROFIL_|trouve/i.test(jsonString);
+    
+    if (hasPlaceholders) {
+      console.error("❌ ERREUR: L'extraction contient des placeholders au lieu de vraies valeurs!");
+      throw new Error("Extraction invalide: GPT-4o a retourné des placeholders");
+    }
     
     // Quality check: count populated fields
     const totalFields = [

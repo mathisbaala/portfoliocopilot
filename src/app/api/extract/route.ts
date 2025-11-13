@@ -90,53 +90,158 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Fallback: ${extractedText.length} caractères`);
     }
     
-    // Optimize text for GPT-4o (limit to 12000 chars for faster processing)
-    const optimizedText = extractedText.slice(0, 12000);
+    // Use more text for better accuracy (25000 chars = ~5000 tokens)
+    const optimizedText = extractedText.slice(0, 25000);
     
-    console.log(`🤖 GPT-4o structuration...`);
+    console.log(`🤖 GPT-4o analyse (${optimizedText.length} chars)...`);
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "Tu es un expert en analyse de documents financiers français (DIC/DICI/PRIIPS). Extrait les données clés et réponds en JSON valide uniquement. Sois précis et concis."
+          content: `Tu es un expert en analyse de Documents d'Information Clé (DIC/DICI/KID/PRIIPS) pour produits financiers français.
+
+INSTRUCTIONS STRICTES:
+1. Lis TOUT le texte attentivement
+2. Extrait TOUTES les données présentes (ne laisse AUCUN champ vide si l'info existe)
+3. Pour les champs numériques: cherche les pourcentages, montants, années
+4. Pour les scénarios: cherche "scénario défavorable/modéré/favorable" ou "stress/défavorable/intermédiaire/favorable"
+5. Pour les frais: cherche "frais d'entrée/sortie/gestion/courtage/totaux"
+6. Pour le risque: cherche "indicateur de risque" ou "SRI" (échelle 1-7)
+7. Pour l'ISIN: format FR + 10 chiffres (ex: FR0010314401)
+8. Réponds en JSON valide UNIQUEMENT`
         },
         {
           role: "user",
-          content: `Extrait les données de ce document financier:
+          content: `Analyse ce document financier et extrait TOUTES les données disponibles:
 
+TEXTE DU DOCUMENT:
 ${optimizedText}
 
-Réponds avec ce JSON exact (remplace les valeurs):
+INSTRUCTIONS D'EXTRACTION:
+- Émetteur: nom de la société de gestion (ex: Amundi, BNP Paribas, Axa)
+- Nom produit: nom complet du fonds/produit
+- ISIN: code à 12 caractères commençant par FR
+- Catégorie: type d'investissement (ex: Actions, Obligations, Diversifié)
+- Risque niveau: chiffre de 1 à 7 (cherche "indicateur" ou "SRI")
+- Frais: tous les pourcentages de frais mentionnés
+- Horizon: durée recommandée (ex: "5 ans", "10 ans")
+- Scénarios: montants et rendements pour chaque scénario (défavorable, intermédiaire, favorable)
+- Stratégie: objectif et politique d'investissement
+
+RÉPONDS AVEC CE JSON (REMPLI avec les données trouvées):
 {
-  "metadata":{"documentName":"${fileName}","uploadDate":"${new Date().toISOString()}","extractionDate":"${new Date().toISOString()}","documentType":"SICAV"},
-  "general":{"emetteur":"","nomProduit":"","isin":"","categorie":"","devise":"EUR","dateCreation":""},
-  "risque":{"niveau":4,"description":"","volatilite":""},
-  "frais":{"entree":0,"sortie":0,"gestionAnnuels":0,"courtage":0,"total":0,"details":""},
-  "horizon":{"recommande":"5 ans","annees":5,"description":""},
-  "scenarios":{"defavorable":{"montant":0,"pourcentage":0},"intermediaire":{"montant":0,"pourcentage":0},"favorable":{"montant":0,"pourcentage":0},"baseInvestissement":10000},
-  "strategie":{"objectif":"","politique":"","zoneGeographique":"","secteurs":[]},
-  "complementaires":{"liquidite":"","fiscalite":"","garantie":"Non","profilInvestisseur":""},
-  "extraction":{"success":true,"confidence":0.9,"errors":[],"warnings":[]}
+  "metadata": {
+    "documentName": "${fileName}",
+    "uploadDate": "${new Date().toISOString()}",
+    "extractionDate": "${new Date().toISOString()}",
+    "documentType": "SICAV"
+  },
+  "general": {
+    "emetteur": "NOM_SOCIETE_GESTION",
+    "nomProduit": "NOM_COMPLET_PRODUIT",
+    "isin": "CODE_ISIN",
+    "categorie": "CATEGORIE",
+    "devise": "EUR",
+    "dateCreation": "DATE_SI_PRESENTE"
+  },
+  "risque": {
+    "niveau": CHIFFRE_1_A_7,
+    "description": "DESCRIPTION_RISQUE",
+    "volatilite": "INFO_VOLATILITE"
+  },
+  "frais": {
+    "entree": POURCENTAGE_OU_NULL,
+    "sortie": POURCENTAGE_OU_NULL,
+    "gestionAnnuels": POURCENTAGE,
+    "courtage": POURCENTAGE_OU_NULL,
+    "total": POURCENTAGE_TOTAL,
+    "details": "DETAILS_FRAIS"
+  },
+  "horizon": {
+    "recommande": "X ans",
+    "annees": NOMBRE_ANNEES,
+    "description": "DESCRIPTION"
+  },
+  "scenarios": {
+    "defavorable": {
+      "montant": MONTANT,
+      "pourcentage": RENDEMENT_POURCENTAGE
+    },
+    "intermediaire": {
+      "montant": MONTANT,
+      "pourcentage": RENDEMENT_POURCENTAGE
+    },
+    "favorable": {
+      "montant": MONTANT,
+      "pourcentage": RENDEMENT_POURCENTAGE
+    },
+    "baseInvestissement": 10000
+  },
+  "strategie": {
+    "objectif": "OBJECTIF_INVESTISSEMENT",
+    "politique": "POLITIQUE_GESTION",
+    "zoneGeographique": "ZONE_GEO",
+    "secteurs": ["SECTEUR1", "SECTEUR2"]
+  },
+  "complementaires": {
+    "liquidite": "CONDITIONS_RACHAT",
+    "fiscalite": "INFO_FISCALE",
+    "garantie": "Oui/Non",
+    "profilInvestisseur": "PROFIL_CIBLE"
+  },
+  "extraction": {
+    "success": true,
+    "confidence": 0.95,
+    "errors": [],
+    "warnings": []
+  }
 }`
         }
       ],
-      temperature: 0,
+      temperature: 0.1,
       response_format: { type: "json_object" },
-      max_tokens: 2048,
+      max_tokens: 4000,
     });
     
     const extractedData: DICData = JSON.parse(completion.choices[0].message.content!);
     
+    // Quality check: count populated fields
+    const totalFields = [
+      extractedData.general.emetteur,
+      extractedData.general.nomProduit,
+      extractedData.general.isin,
+      extractedData.general.categorie,
+      extractedData.risque.niveau > 0,
+      extractedData.risque.description,
+      extractedData.frais.gestionAnnuels > 0,
+      extractedData.horizon.recommande,
+      extractedData.strategie?.objectif,
+      extractedData.strategie?.politique,
+    ].filter(Boolean).length;
+    
     const duration = Date.now() - startTime;
-    console.log(`✅ Terminé: ${duration}ms`);
+    
+    console.log(`✅ Terminé: ${duration}ms - ${totalFields}/10 champs remplis`);
+    
+    // Adjust confidence based on populated fields
+    const adjustedConfidence = Math.min(0.99, (totalFields / 10) * extractedData.extraction.confidence);
+    const existingWarnings = extractedData.extraction.warnings || [];
     
     return NextResponse.json({
       ...extractedData,
       metadata: {
         ...extractedData.metadata,
         processingTime: duration,
+      },
+      extraction: {
+        ...extractedData.extraction,
+        confidence: adjustedConfidence,
+        warnings: totalFields < 5 ? [
+          ...existingWarnings,
+          "Extraction partielle - certaines données manquent peut-être dans le document"
+        ] : existingWarnings,
       },
     });
     

@@ -62,7 +62,14 @@ export async function POST(request: NextRequest) {
     } catch (textractError) {
       // Fallback: Extract raw text from PDF buffer
       const errorMsg = textractError instanceof Error ? textractError.message : 'Unknown error';
-      console.log(`⚠️ Textract failed, using fallback`);
+      const errorName = textractError instanceof Error ? textractError.name : 'UnknownError';
+      
+      if (errorName === 'UnsupportedDocumentException') {
+        console.log(`ℹ️ PDF généré par navigateur (Chromium/Skia) - extraction fallback`);
+      } else {
+        console.log(`⚠️ Textract indisponible (${errorName}) - extraction fallback`);
+      }
+
       
       const pdfText = pdfBuffer.toString('latin1');
       const textMatches = pdfText.match(/\(([^)]+)\)/g) || [];

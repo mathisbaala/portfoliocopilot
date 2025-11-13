@@ -33,48 +33,37 @@ export async function POST(request: NextRequest) {
     
     console.log(`📊 PDF: ${(pdfBuffer.length / 1024).toFixed(0)}KB`);
     
-    // Convert PDF buffer to base64 for GPT-4o
+    // Convert PDF buffer to base64 for GPT-5
     const base64Pdf = pdfBuffer.toString('base64');
     
-    console.log(`🤖 Envoi du PDF directement à GPT-4o...`);
+    console.log(`🤖 Envoi du PDF directement à GPT-5...`);
     
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
+    // Utiliser l'API Responses avec GPT-5 pour supporter les PDFs
+    const response = await openai.responses.create({
+      model: "gpt-5",
+      input: [
         {
-          role: "system",
-          content: `Tu es un expert en analyse de Documents d'Information Clé (DIC/DICI/KID/PRIIPS) pour produits financiers français.
+          role: "user",
+          content: [
+            {
+              type: "input_file",
+              filename: fileName,
+              file_data: `data:application/pdf;base64,${base64Pdf}`,
+            },
+            {
+              type: "input_text",
+              text: `Tu es un expert en analyse de Documents d'Information Clé (DIC/DICI/KID/PRIIPS) pour produits financiers français.
 
 INSTRUCTIONS STRICTES:
 1. Analyse TOUT le document PDF attentivement
 2. Extrait TOUTES les données présentes (ne laisse AUCUN champ vide si l'info existe)
 3. Pour les champs numériques: cherche les pourcentages, montants, années
-4. Pour les scénarios: cherche "scénario défavorable/modéré/favorable" ou "stress/défavorable/intermédiaire/favorable"
+4. Pour les scénarios: cherche "scénario défavorable/modéré/favorable"
 5. Pour les frais: cherche "frais d'entrée/sortie/gestion/courtage/totaux"
 6. Pour le risque: cherche "indicateur de risque" ou "SRI" (échelle 1-7)
 7. Pour l'ISIN: format FR + 10 chiffres (ex: FR0010314401)
-8. Réponds en JSON valide UNIQUEMENT`
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Analyse ce document financier PDF (DIC/KID/PRIIPS) et extrait les données structurées.
 
-Extrait et retourne un JSON valide avec les informations suivantes:`
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:application/pdf;base64,${base64Pdf}`,
-              },
-            },
-          ] as any,
-        },
-        {
-          role: "user",
-          content: `Continue l'extraction avec ces champs:
+Extrait et retourne UNIQUEMENT un JSON valide avec:
 
 1. **general.emetteur**: Nom de la société de gestion (cherche en haut du document)
 2. **general.nomProduit**: Nom complet du fonds/produit (titre principal)
@@ -163,15 +152,18 @@ Retourne UNIQUEMENT le JSON suivant avec les valeurs RÉELLES extraites du texte
   }
 }
 
-REMPLIS chaque champ avec les valeurs trouvées dans le document. Si une information n'existe pas, laisse null ou "".`
-        }
+REMPLIS chaque champ avec les valeurs trouvées dans le document. Si une information n'existe pas, laisse null ou "".`,
+            },
+          ],
+        },
       ],
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      max_tokens: 4000,
-    });
+    } as any);
     
-    const extractedData: DICData = JSON.parse(completion.choices[0].message.content!);
+    // Extraire le texte de la réponse GPT-5
+    const responseText = (response as any).output_text || (response as any).output || "";
+    
+    // Parser le JSON retourné
+    const extractedData: DICData = JSON.parse(responseText);
     
     // Quality check: count populated fields
     const totalFields = [

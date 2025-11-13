@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle, Download, TrendingUp } from "lucide-react";
+import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -31,45 +31,6 @@ export default function UploadPage() {
     e.preventDefault();
     setIsDragging(false);
   }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      (file) => file.type === "application/pdf"
-    );
-
-    if (droppedFiles.length === 0) {
-      toast.error("Seuls les fichiers PDF sont acceptés");
-      return;
-    }
-
-    handleFiles(droppedFiles);
-  }, []);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      handleFiles(selectedFiles);
-    }
-  }, []);
-
-  const handleFiles = async (newFiles: File[]) => {
-    const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
-      file,
-      id: Math.random().toString(36).substring(7),
-      status: "uploading",
-      progress: 0,
-    }));
-
-    setFiles((prev) => [...prev, ...uploadedFiles]);
-
-    // Process each file
-    for (const uploadedFile of uploadedFiles) {
-      await processFile(uploadedFile);
-    }
-  };
 
   const processFile = async (uploadedFile: UploadedFile) => {
     try {
@@ -144,6 +105,47 @@ export default function UploadPage() {
       toast.error(`❌ ${uploadedFile.file.name}: ${errorMessage}`);
     }
   };
+
+  const handleFiles = async (newFiles: File[]) => {
+    const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
+      file,
+      id: Math.random().toString(36).substring(7),
+      status: "uploading",
+      progress: 0,
+    }));
+
+    setFiles((prev) => [...prev, ...uploadedFiles]);
+
+    // Process each file
+    for (const uploadedFile of uploadedFiles) {
+      await processFile(uploadedFile);
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(
+      (file) => file.type === "application/pdf"
+    );
+
+    if (droppedFiles.length === 0) {
+      toast.error("Seuls les fichiers PDF sont acceptés");
+      return;
+    }
+
+    handleFiles(droppedFiles);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      handleFiles(selectedFiles);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const updateFileStatus = (
     id: string,

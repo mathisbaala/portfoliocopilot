@@ -1,28 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, TrendingUp, Target, Percent, AlertTriangle, Download, Trash2 } from "lucide-react";
+import { Upload, FileText, Target, Percent, AlertTriangle, Download, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { getStoredExtractions, getExtractionStats, deleteExtraction, clearAllExtractions, type StoredExtraction } from "@/lib/storage";
 import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const [extractions, setExtractions] = useState<StoredExtraction[]>([]);
-  const [stats, setStats] = useState({
-    totalDocuments: 0,
-    avgConfidence: 0,
-    avgRisk: 0,
-    avgFees: 0,
-    riskDistribution: {} as Record<number, number>,
-  });
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  const [extractions, setExtractions] = useState<StoredExtraction[]>(() => getStoredExtractions());
+  const [stats, setStats] = useState(() => getExtractionStats());
 
   const loadData = () => {
     const stored = getStoredExtractions();

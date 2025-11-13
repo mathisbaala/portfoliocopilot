@@ -13,200 +13,116 @@ export async function POST(request: NextRequest) {
     const { fileUrl, fileName } = await request.json();
     
     if (!fileUrl || !fileName) {
-      throw new Error("Missing fileUrl or fileName");
+      return NextResponse.json(
+        { error: "fileUrl et fileName requis" },
+        { status: 400 }
+      );
     }
     
-    console.log(`📄 Extraction: ${fileName}`);
+    console.log(`\n📄 EXTRACTION: ${fileName}`);
     
-    // Download PDF
+    // 1. Télécharger le PDF
+    console.log(`📥 Téléchargement...`);
     const pdfResponse = await fetch(fileUrl);
     if (!pdfResponse.ok) {
-      throw new Error(`PDF download failed: ${pdfResponse.status}`);
+      throw new Error(`Erreur téléchargement: ${pdfResponse.status}`);
     }
     
     const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
     
-    // Validate PDF format
+    // 2. Validation PDF
     if (!pdfBuffer.slice(0, 4).toString().startsWith('%PDF')) {
-      throw new Error("Invalid PDF format");
+      throw new Error("Fichier invalide (pas un PDF)");
     }
     
-    console.log(`📊 PDF: ${(pdfBuffer.length / 1024).toFixed(0)}KB`);
+    const sizeMB = (pdfBuffer.length / 1024 / 1024).toFixed(2);
+    console.log(`✅ PDF téléchargé: ${sizeMB}MB`);
     
-    // Convert PDF buffer to base64 for GPT-5
-    const base64Pdf = pdfBuffer.toString('base64');
+    // 3. Upload du PDF vers OpenAI Files API
+    console.log(`📤 Upload vers OpenAI...`);
+    const file = await openai.files.create({
+      file: new File([pdfBuffer], fileName, { type: 'application/pdf' }),
+      purpose: 'assistants',
+    });
     
-    console.log(`🤖 Envoi du PDF directement à GPT-5...`);
+    console.log(`✅ Fichier OpenAI: ${file.id}`);
     
-    // Utiliser l'API Responses avec GPT-5 pour supporter les PDFs
-    const response = await openai.responses.create({
-      model: "gpt-5",
-      input: [
+    // 4. Appel GPT-4o
+    console.log(`🤖 Analyse GPT-4o avec PDF...`);
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "Tu es un expert en analyse de documents financiers DIC/KID/PRIIPS. Extrait TOUTES les données en JSON valide uniquement."
+        },
         {
           role: "user",
-          content: [
-            {
-              type: "input_file",
-              filename: fileName,
-              file_data: `data:application/pdf;base64,${base64Pdf}`,
-            },
-            {
-              type: "input_text",
-              text: `Tu es un expert en analyse de Documents d'Information Clé (DIC/DICI/KID/PRIIPS) pour produits financiers français.
-
-INSTRUCTIONS STRICTES:
-1. Analyse TOUT le document PDF attentivement
-2. Extrait TOUTES les données présentes (ne laisse AUCUN champ vide si l'info existe)
-3. Pour les champs numériques: cherche les pourcentages, montants, années
-4. Pour les scénarios: cherche "scénario défavorable/modéré/favorable"
-5. Pour les frais: cherche "frais d'entrée/sortie/gestion/courtage/totaux"
-6. Pour le risque: cherche "indicateur de risque" ou "SRI" (échelle 1-7)
-7. Pour l'ISIN: format FR + 10 chiffres (ex: FR0010314401)
-
-Extrait et retourne UNIQUEMENT un JSON valide avec:
-
-1. **general.emetteur**: Nom de la société de gestion (cherche en haut du document)
-2. **general.nomProduit**: Nom complet du fonds/produit (titre principal)
-3. **general.isin**: Code ISIN (format: FR suivi de 10 chiffres)
-4. **general.categorie**: Type d'actifs (Actions, Obligations, Diversifié, Monétaire...)
-5. **general.devise**: Devise de référence (EUR, USD...)
-6. **risque.niveau**: Indicateur de risque de 1 à 7 (cherche "indicateur de risque" ou échelle SRI)
-7. **risque.description**: Description textuelle du risque
-8. **frais.gestionAnnuels**: Frais de gestion annuels en pourcentage (ex: 1.85)
-9. **frais.entree**: Frais d'entrée en pourcentage (ou null)
-10. **frais.sortie**: Frais de sortie en pourcentage (ou null)
-11. **frais.total**: Total des frais annuels
-12. **horizon.recommande**: Durée recommandée (ex: "5 ans")
-13. **horizon.annees**: Nombre d'années (ex: 5)
-14. **scenarios**: Scénarios de performance avec montants et pourcentages (défavorable, intermédiaire, favorable)
-15. **strategie.objectif**: Objectif d'investissement
-16. **strategie.politique**: Politique de gestion
-
-Retourne UNIQUEMENT le JSON suivant avec les valeurs RÉELLES extraites du texte:
-
-{
-  "metadata": {
-    "documentName": "${fileName}",
-    "uploadDate": "${new Date().toISOString()}",
-    "extractionDate": "${new Date().toISOString()}",
-    "documentType": "SICAV"
-  },
-  "general": {
-    "emetteur": "",
-    "nomProduit": "",
-    "isin": "",
-    "categorie": "",
-    "devise": "EUR",
-    "dateCreation": null
-  },
-  "risque": {
-    "niveau": 1,
-    "description": "",
-    "volatilite": null
-  },
-  "frais": {
-    "entree": null,
-    "sortie": null,
-    "gestionAnnuels": 0,
-    "courtage": null,
-    "total": 0,
-    "details": ""
-  },
-  "horizon": {
-    "recommande": "",
-    "annees": null,
-    "description": null
-  },
-  "scenarios": {
-    "defavorable": {
-      "montant": null,
-      "pourcentage": null
-    },
-    "intermediaire": {
-      "montant": null,
-      "pourcentage": null
-    },
-    "favorable": {
-      "montant": null,
-      "pourcentage": null
-    },
-    "baseInvestissement": 10000
-  },
-  "strategie": {
-    "objectif": "",
-    "politique": "",
-    "zoneGeographique": null,
-    "secteurs": []
-  },
-  "complementaires": {
-    "liquidite": null,
-    "fiscalite": null,
-    "garantie": "Non",
-    "profilInvestisseur": null
-  },
-  "extraction": {
-    "success": true,
-    "confidence": 0.9,
-    "errors": [],
-    "warnings": []
-  }
-}
-
-REMPLIS chaque champ avec les valeurs trouvées dans le document. Si une information n'existe pas, laisse null ou "".`,
-            },
-          ],
-        },
+          content: `Analyse ce PDF financier (ID: ${file.id}) et retourne un JSON avec: metadata, general (emetteur, nomProduit, isin, categorie, devise), risque (niveau 1-7, description), frais (entree, sortie, gestionAnnuels, total), horizon (recommande, annees), scenarios (defavorable, intermediaire, favorable), strategie (objectif, politique), complementaires, extraction (success, confidence).`
+        }
       ],
-    } as any);
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+      max_tokens: 4000,
+    });
     
-    // Extraire le texte de la réponse GPT-5
-    const responseText = (response as any).output_text || (response as any).output || "";
+    const rawResponse = completion.choices[0].message.content;
+    if (!rawResponse) {
+      throw new Error("Pas de réponse de GPT-4o");
+    }
     
-    // Parser le JSON retourné
-    const extractedData: DICData = JSON.parse(responseText);
+    // 5. Parser
+    const extractedData: DICData = JSON.parse(rawResponse);
     
-    // Quality check: count populated fields
-    const totalFields = [
-      extractedData.general.emetteur,
-      extractedData.general.nomProduit,
-      extractedData.general.isin,
-      extractedData.general.categorie,
-      extractedData.risque.niveau > 0,
-      extractedData.risque.description,
-      extractedData.frais.gestionAnnuels > 0,
-      extractedData.horizon.recommande,
-      extractedData.strategie?.objectif,
-      extractedData.strategie?.politique,
+    // 6. Quality check
+    const criticalFields = [
+      extractedData.general?.emetteur,
+      extractedData.general?.nomProduit,
+      extractedData.general?.isin,
+      extractedData.risque?.niveau > 0,
+      extractedData.frais?.gestionAnnuels > 0,
     ].filter(Boolean).length;
     
+    const qualityScore = criticalFields / 5;
     const duration = Date.now() - startTime;
     
-    console.log(`✅ Terminé: ${duration}ms - ${totalFields}/10 champs remplis`);
+    console.log(`✅ Terminé: ${duration}ms - ${criticalFields}/5 champs (${(qualityScore * 100).toFixed(0)}%)`);
     
-    // Adjust confidence based on populated fields
-    const adjustedConfidence = Math.min(0.99, (totalFields / 10) * extractedData.extraction.confidence);
-    const existingWarnings = extractedData.extraction.warnings || [];
+    // 7. Nettoyer
+    try {
+      await openai.files.delete(file.id);
+    } catch (err) {
+      // Ignorer erreur suppression
+    }
     
+    // 8. Retour
     return NextResponse.json({
       ...extractedData,
       metadata: {
-        ...extractedData.metadata,
+        documentName: fileName,
+        uploadDate: new Date().toISOString(),
+        extractionDate: new Date().toISOString(),
+        documentType: "SICAV",
         processingTime: duration,
       },
       extraction: {
-        ...extractedData.extraction,
-        confidence: adjustedConfidence,
-        warnings: totalFields < 5 ? [
-          ...existingWarnings,
-          "Extraction partielle - certaines données manquent peut-être dans le document"
-        ] : existingWarnings,
+        success: true,
+        confidence: qualityScore,
+        errors: [],
+        warnings: [],
       },
     });
     
-  } catch (error) {
-    console.error("Extraction error:", error);
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error(`\n❌ ERREUR (${duration}ms):`, error.message);
+    
     return NextResponse.json(
-      { error: "Erreur extraction", details: (error as Error).message },
+      { 
+        error: "Erreur extraction",
+        details: error.message,
+      },
       { status: 500 }
     );
   }

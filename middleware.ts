@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Placeholder: activer plus tard pour protéger /dashboard via Supabase
-export function middleware(req: NextRequest) {
+export function middleware(_req: NextRequest) {
   return NextResponse.next();
 }
 

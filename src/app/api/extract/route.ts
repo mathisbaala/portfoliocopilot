@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { TextractClient, DetectDocumentTextCommand } from "@aws-sdk/client-textract";
 import OpenAI from "openai";
 import type { DICData } from "@/types/dic-data";
-
-const textract = new TextractClient({
-  region: process.env.AWS_REGION || "eu-west-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -42,65 +33,10 @@ export async function POST(request: NextRequest) {
     
     console.log(`📊 PDF: ${(pdfBuffer.length / 1024).toFixed(0)}KB`);
     
-    let extractedText = "";
+    // Convert PDF buffer to base64 for GPT-4o
+    const base64Pdf = pdfBuffer.toString('base64');
     
-    // Try AWS Textract first (best quality)
-    try {
-      const textractResponse = await textract.send(
-        new DetectDocumentTextCommand({
-          Document: { Bytes: new Uint8Array(pdfBuffer) },
-        })
-      );
-      
-      extractedText = textractResponse.Blocks
-        ?.filter(block => block.BlockType === "LINE" && block.Text)
-        .map(block => block.Text!)
-        .join(" ") || "";
-        
-      console.log(`✅ Textract: ${extractedText.split(/\s+/).length} mots`);
-      
-    } catch (textractError) {
-      // Fallback: Extract raw text from PDF buffer
-      const errorMsg = textractError instanceof Error ? textractError.message : 'Unknown error';
-      const errorName = textractError instanceof Error ? textractError.name : 'UnknownError';
-      
-      if (errorName === 'UnsupportedDocumentException') {
-        console.log(`ℹ️ PDF généré par navigateur (Chromium/Skia) - extraction fallback`);
-      } else {
-        console.log(`⚠️ Textract indisponible (${errorName}) - extraction fallback`);
-      }
-
-      
-      const pdfText = pdfBuffer.toString('latin1');
-      const textMatches = pdfText.match(/\(([^)]+)\)/g) || [];
-      
-      extractedText = textMatches
-        .map(match => match.slice(1, -1)
-          .replace(/\\n/g, ' ')
-          .replace(/\\r/g, ' ')
-          .replace(/\\t/g, ' ')
-          .replace(/\\\(/g, '(')
-          .replace(/\\\)/g, ')')
-          .replace(/\\\\/g, '\\')
-        )
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      
-      if (extractedText.length < 100) {
-        throw new Error(
-          "PDF extraction failed. Le PDF est peut-être scanné (image) ou vide. " +
-          `Détails: ${errorMsg}`
-        );
-      }
-      
-      console.log(`✅ Fallback: ${extractedText.length} caractères`);
-    }
-    
-    // Use more text for better accuracy (25000 chars = ~5000 tokens)
-    const optimizedText = extractedText.slice(0, 25000);
-    
-    console.log(`🤖 GPT-4o analyse (${optimizedText.length} chars)...`);
+    console.log(`🤖 Envoi du PDF directement à GPT-4o...`);
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -110,7 +46,7 @@ export async function POST(request: NextRequest) {
           content: `Tu es un expert en analyse de Documents d'Information Clé (DIC/DICI/KID/PRIIPS) pour produits financiers français.
 
 INSTRUCTIONS STRICTES:
-1. Lis TOUT le texte attentivement
+1. Analyse TOUT le document PDF attentivement
 2. Extrait TOUTES les données présentes (ne laisse AUCUN champ vide si l'info existe)
 3. Pour les champs numériques: cherche les pourcentages, montants, années
 4. Pour les scénarios: cherche "scénario défavorable/modéré/favorable" ou "stress/défavorable/intermédiaire/favorable"
@@ -121,13 +57,24 @@ INSTRUCTIONS STRICTES:
         },
         {
           role: "user",
-          content: `Analyse ce document financier (DIC/KID/PRIIPS) et extrait les données structurées.
+          content: [
+            {
+              type: "text",
+              text: `Analyse ce document financier PDF (DIC/KID/PRIIPS) et extrait les données structurées.
 
-===== DOCUMENT =====
-${optimizedText}
-===== FIN =====
-
-Extrait et retourne un JSON valide avec les informations suivantes:
+Extrait et retourne un JSON valide avec les informations suivantes:`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`,
+              },
+            },
+          ] as any,
+        },
+        {
+          role: "user",
+          content: `Continue l'extraction avec ces champs:
 
 1. **general.emetteur**: Nom de la société de gestion (cherche en haut du document)
 2. **general.nomProduit**: Nom complet du fonds/produit (titre principal)
@@ -225,35 +172,6 @@ REMPLIS chaque champ avec les valeurs trouvées dans le document. Si une informa
     });
     
     const extractedData: DICData = JSON.parse(completion.choices[0].message.content!);
-    
-    // Detect obvious placeholders (BAD extraction) - check only string values
-    const jsonString = JSON.stringify(extractedData);
-    const suspiciousPatterns = [
-      /NOM_SOCIETE/i,
-      /NOM_PRODUIT/i,
-      /CHIFFRE_/i,
-      /POURCENTAGE_/i,
-      /MONTANT_/i,
-      /DESCRIPTION_/i,
-      /OBJECTIF_/i,
-      /POLITIQUE_/i,
-      /ZONE_GEO/i,
-      /SECTEUR\d/i,
-      /CONDITIONS_/i,
-      /INFO_FISCALE/i,
-      /PROFIL_CIBLE/i,
-      /"trouve le/i,
-      /"trouve la/i,
-      /"trouve les/i,
-    ];
-    
-    const hasPlaceholders = suspiciousPatterns.some(pattern => pattern.test(jsonString));
-    
-    if (hasPlaceholders) {
-      console.error("❌ ERREUR: L'extraction contient des placeholders au lieu de vraies valeurs!");
-      console.error("JSON retourné:", jsonString.substring(0, 500));
-      throw new Error("Extraction invalide: GPT-4o a retourné des placeholders");
-    }
     
     // Quality check: count populated fields
     const totalFields = [

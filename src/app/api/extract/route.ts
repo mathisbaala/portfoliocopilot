@@ -76,16 +76,39 @@ export async function POST(request: NextRequest) {
       
     } catch (textractError: any) {
       console.warn("⚠️ Textract failed:", textractError.message);
-      console.log("🔄 Fallback: Converting PDF to images for GPT-4o Vision...");
+      console.log("🔄 Fallback: Extraction texte brut du PDF...");
       
-      // Fallback: Use GPT-4o Vision with PDF
-      // GPT-4o can't process PDF directly, so we'll send the raw text extraction request
-      // For now, we'll throw and let the user know they need a different PDF
-      throw new Error(
-        `AWS Textract ne peut pas traiter ce PDF (format non supporté). ` +
-        `Essayez de réexporter le PDF depuis Adobe Acrobat ou un autre outil. ` +
-        `Détails techniques: ${textractError.message}`
-      );
+      // Fallback: Extract raw text from PDF buffer
+      // This is a simple approach that works for text-based PDFs
+      const pdfText = pdfBuffer.toString('latin1');
+      
+      // Extract text between stream objects (simplified PDF text extraction)
+      const textMatches = pdfText.match(/\(([^)]+)\)/g) || [];
+      const rawTexts = textMatches.map(match => {
+        // Remove parentheses and decode basic PDF encoding
+        let text = match.slice(1, -1);
+        // Decode common PDF escapes
+        text = text.replace(/\\n/g, ' ');
+        text = text.replace(/\\r/g, ' ');
+        text = text.replace(/\\t/g, ' ');
+        text = text.replace(/\\\(/g, '(');
+        text = text.replace(/\\\)/g, ')');
+        text = text.replace(/\\\\/g, '\\');
+        return text;
+      });
+      
+      extractedText = rawTexts.join(' ').replace(/\s+/g, ' ').trim();
+      
+      if (!extractedText || extractedText.length < 100) {
+        throw new Error(
+          `Impossible d'extraire le texte de ce PDF. ` +
+          `Le PDF est peut-être vide, scanné (image), ou dans un format non standard. ` +
+          `Essayez de réexporter le PDF avec Adobe Acrobat. ` +
+          `Détails techniques Textract: ${textractError.message}`
+        );
+      }
+      
+      console.log("✅ Fallback extraction success:", extractedText.length, "caractères");
     }
     
     const completion = await openai.chat.completions.create({

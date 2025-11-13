@@ -88,17 +88,22 @@ export async function POST(request: NextRequest) {
           throw error;
         }
 
-        // Success - Get public URL
-        const { data: urlData } = supabase.storage
+        // Success - Create a signed URL that expires in 1 hour
+        const { data: signedUrlData, error: signedError } = await supabase.storage
           .from("dic-documents")
-          .getPublicUrl(fileName);
+          .createSignedUrl(fileName, 3600); // 3600 seconds = 1 hour
+
+        if (signedError || !signedUrlData) {
+          console.error("❌ Failed to create signed URL:", signedError);
+          throw new Error("Failed to create signed URL for file access");
+        }
 
         console.log(`✅ Upload successful: ${fileName}`);
 
         return NextResponse.json({
           success: true,
           fileName,
-          fileUrl: urlData.publicUrl,
+          fileUrl: signedUrlData.signedUrl, // Use signed URL instead of public URL
           filePath: data.path,
           fileSize: file.size,
         });

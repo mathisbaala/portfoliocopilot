@@ -22,25 +22,71 @@ export async function POST(request: NextRequest) {
     const { fileUrl, fileName } = await request.json();
     
     console.log("Extraction:", fileName);
+    console.log("File URL:", fileUrl);
     
     const pdfResponse = await fetch(fileUrl);
+    console.log("PDF Response status:", pdfResponse.status);
+    console.log("PDF Response content-type:", pdfResponse.headers.get("content-type"));
+    
+    if (!pdfResponse.ok) {
+      throw new Error(`Failed to download PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
+    }
+    
     const arrayBuffer = await pdfResponse.arrayBuffer();
     const pdfBuffer = Buffer.from(arrayBuffer);
     
+    console.log("PDF Buffer size:", pdfBuffer.length, "bytes");
+    console.log("PDF Magic bytes:", pdfBuffer.slice(0, 8).toString('hex'));
+    console.log("PDF Last bytes:", pdfBuffer.slice(-8).toString('hex'));
+    
+    // Verify it's a valid PDF
+    if (!pdfBuffer.slice(0, 4).toString().startsWith('%PDF')) {
+      throw new Error("Invalid PDF format - file does not start with %PDF header");
+    }
+    
+    // Check if PDF ends with EOF marker
+    const pdfEnd = pdfBuffer.slice(-1024).toString('latin1');
+    if (!pdfEnd.includes('%%EOF')) {
+      console.warn("⚠️ Warning: PDF may be truncated (no %%EOF marker found)");
+    }
+    
     console.log("AWS Textract...");
-    const textractResponse = await textract.send(
-      new DetectDocumentTextCommand({
-        Document: { Bytes: pdfBuffer },
-      })
-    );
+    console.log("Textract region:", process.env.AWS_REGION || "eu-west-1");
     
-    const extractedText = textractResponse.Blocks?.filter(
-      (block) => block.BlockType === "LINE"
-    )
-      .map((block) => block.Text)
-      .join(" ") || "";
+    let extractedText = "";
     
-    console.log("Texte extrait:", extractedText.split(/\s+/).length, "mots");
+    // Try AWS Textract first
+    try {
+      // Try with Uint8Array instead of Buffer (AWS SDK sometimes prefers this)
+      const uint8Array = new Uint8Array(pdfBuffer);
+      
+      const textractResponse = await textract.send(
+        new DetectDocumentTextCommand({
+          Document: { Bytes: uint8Array },
+        })
+      );
+      
+      extractedText = textractResponse.Blocks?.filter(
+        (block) => block.BlockType === "LINE"
+      )
+        .map((block) => block.Text)
+        .join(" ") || "";
+        
+      console.log("✅ Textract success:", extractedText.split(/\s+/).length, "mots");
+      
+    } catch (textractError: any) {
+      console.warn("⚠️ Textract failed:", textractError.message);
+      console.log("🔄 Fallback: Converting PDF to images for GPT-4o Vision...");
+      
+      // Fallback: Use GPT-4o Vision with PDF
+      // GPT-4o can't process PDF directly, so we'll send the raw text extraction request
+      // For now, we'll throw and let the user know they need a different PDF
+      throw new Error(
+        `AWS Textract ne peut pas traiter ce PDF (format non supporté). ` +
+        `Essayez de réexporter le PDF depuis Adobe Acrobat ou un autre outil. ` +
+        `Détails techniques: ${textractError.message}`
+      );
+    }
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

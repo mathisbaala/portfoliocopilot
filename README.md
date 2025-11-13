@@ -32,8 +32,13 @@ Créer `.env.local` avec les variables suivantes:
 NEXT_PUBLIC_SUPABASE_URL=votre_url_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anonyme_supabase
 
-# OpenAI (pour extraction intelligente avec GPT-4o Vision)
+# OpenAI (pour structuration des données extraites)
 OPENAI_API_KEY=votre_cle_openai
+
+# AWS Textract (pour extraction OCR des PDFs)
+AWS_ACCESS_KEY_ID=votre_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=votre_aws_secret_access_key
+AWS_REGION=eu-west-1
 ```
 
 4. Configurer la base de données Supabase:
@@ -44,7 +49,30 @@ Exécuter le script SQL `supabase-schema.sql` dans l'éditeur SQL de votre proje
 - Le bucket de stockage `dic-documents`
 - Les politiques de stockage
 
-5. Lancer le serveur de développement:
+5. **⚠️ Configurer AWS Textract** (obligatoire pour l'extraction PDF):
+
+L'extraction des PDFs nécessite AWS Textract car:
+- GPT-4o Vision **ne supporte pas les PDFs** (images uniquement)
+- Aucune solution JavaScript pure ne fonctionne en environnement serverless (pdf-parse, pdfjs-dist nécessitent des dépendances natives)
+
+**Étapes d'activation:**
+
+a. Créer un compte AWS: https://aws.amazon.com (gratuit, 1000 pages/mois la première année)
+
+b. Créer un utilisateur IAM avec accès Textract:
+   - AWS Console → IAM → Utilisateurs → Créer un utilisateur
+   - Permissions: Attacher la politique `AmazonTextractFullAccess`
+   - Créer une clé d'accès (Access Key + Secret Key)
+
+c. Activer Textract dans votre région:
+   - AWS Console → Textract → Commencer
+   - Vérifier que le service est disponible dans `eu-west-1` (Paris)
+
+d. Ajouter les credentials dans `.env.local` (voir étape 3 ci-dessus)
+
+**Note technique:** AWS Textract fait l'OCR (extraction du texte), puis GPT-4o structure les données en JSON. Cette architecture à 2 étapes est la seule solution compatible avec les environnements serverless (Vercel, Netlify).
+
+6. Lancer le serveur de développement:
 
 ```bash
 npm run dev
@@ -95,12 +123,21 @@ La page `/login` permet de s'authentifier. Le middleware peut être activé pour
 
 ## 📄 Extraction de documents financiers
 
-L'application utilise **OpenAI GPT-4o Vision** pour extraire automatiquement les données des Documents d'Information Clé (DIC).
+L'application utilise **AWS Textract** pour l'OCR (extraction du texte) et **GPT-4o** pour la structuration intelligente des données.
+
+### Architecture d'extraction
+1. **AWS Textract** → Extrait le texte brut du PDF (OCR)
+2. **GPT-4o** → Structure le texte en JSON avec validation
+
+### Pourquoi cette architecture ?
+- ❌ **GPT-4o Vision** ne supporte PAS les PDFs (images uniquement)
+- ❌ **pdf-parse / pdfjs-dist** nécessitent des dépendances natives (incompatibles serverless)
+- ✅ **AWS Textract + GPT-4o** fonctionne dans tous les environnements (Vercel, Netlify, etc.)
 
 ### Fonctionnalités
 - ✅ Upload de PDF via drag & drop
-- ✅ Extraction directe avec GPT-4o Vision (OCR intégré)
-- ✅ Structuration intelligente en un seul appel API
+- ✅ OCR haute qualité avec AWS Textract
+- ✅ Structuration intelligente avec GPT-4o
 - ✅ Export JSON des données extraites
 - ✅ Supporte PDFs texte ET scannés
 
@@ -112,11 +149,11 @@ L'application utilise **OpenAI GPT-4o Vision** pour extraire automatiquement les
 - Scénarios de performance
 - Stratégie d'investissement
 
-### Avantages GPT-4o Vision
-- ✅ Un seul fournisseur (OpenAI)
-- ✅ Setup ultra-simple (pas de compte AWS)
-- ✅ Comprend mieux le contexte
-- ✅ OCR automatique intégré
+### Avantages de l'architecture
+- ✅ Serverless-compatible (aucune dépendance native)
+- ✅ OCR professionnel (AWS Textract)
+- ✅ Structuration contextuelle (GPT-4o)
+- ✅ Coûts raisonnables (Textract: ~0.0015€/page, GPT-4o: ~0.01€/appel)
 
 ## 📝 Prochaines étapes
 

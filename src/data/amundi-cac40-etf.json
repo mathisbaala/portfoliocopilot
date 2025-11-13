@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "1.0",
+  "frontendProductName": "ETF CAC 40 Acc",
+  "productType": "ETF",
+  "documentInfo": {
+    "documentType": "PRIIPs KID",
+    "language": "fr",
+    "kidProductionDate": "2024-12-13"
+  },
+  "product": {
+    "name": "Amundi CAC 40 UCITS ETF Acc",
+    "isin": "FR0013380607",
+    "currency": "EUR",
+    "descriptionShort": "ETF qui suit l'indice CAC 40 (40 grandes entreprises françaises).",
+    "manufacturer": "Amundi Asset Management",
+    "domicileCountry": "FR",
+    "regulator": "AMF"
+  },
+  "risk": {
+    "riskIndicator": 5,
+    "riskScaleMin": 1,
+    "riskScaleMax": 7,
+    "recommendedHoldingPeriodYears": 5,
+    "capitalGuarantee": false,
+    "canLoseMoreThanInvested": false
+  },
+  "performanceScenarios": {
+    "baseCurrency": "EUR",
+    "baseInvestmentAmount": 10000,
+    "scenarios": [
+      {
+        "type": "stress",
+        "label": "Scénario de tensions",
+        "amountAfterEndOfRecommendedPeriod": 1480
+      },
+      {
+        "type": "unfavourable",
+        "label": "Scénario défavorable",
+        "amountAfterEndOfRecommendedPeriod": 10080
+      },
+      {
+        "type": "moderate",
+        "label": "Scénario intermédiaire",
+        "amountAfterEndOfRecommendedPeriod": 15290
+      },
+      {
+        "type": "favourable",
+        "label": "Scénario favorable",
+        "amountAfterEndOfRecommendedPeriod": 18150
+      }
+    ]
+  },
+  "costs": {
+    "baseInvestmentAmount": 10000,
+    "ongoingChargesPercentPerYear": 0.25,
+    "transactionCostsPercentPerYear": 0.03,
+    "entryFeePercent": 0,
+    "exitFeePercent": 0
+  },
+  "liquidityAndTrading": {
+    "tradedOnExchange": true,
+    "mainExchange": "Euronext Paris",
+    "ticker": "C40",
+    "canRedeemBeforeEndOfPeriod": true
+  },
+  "typeSpecific": {
+    "kind": "ETF",
+    "fundType": "UCITS",
+    "category": "Actions zone euro",
+    "index": {
+      "name": "CAC 40 Gross Total Return",
+      "type": "GROSS_TR",
+      "provider": "Euronext"
+    },
+    "managementStyle": "PASSIVE",
+    "replicationMethod": "PHYSICAL",
+    "peaEligible": true,
+    "distributionPolicy": "ACCUMULATION"
+  },
+  "historicalPerformance": {
+    "dataPoints": [
+      { "date": "2020-01-01", "value": 100 },
+      { "date": "2020-04-01", "value": 85 },
+      { "date": "2020-07-01", "value": 95 },
+      { "date": "2020-10-01", "value": 92 },
+      { "date": "2021-01-01", "value": 100 },
+      { "date": "2021-04-01", "value": 110 },
+      { "date": "2021-07-01", "value": 115 },
+      { "date": "2021-10-01", "value": 120 },
+      { "date": "2022-01-01", "value": 118 },
+      { "date": "2022-04-01", "value": 105 },
+      { "date": "2022-07-01", "value": 98 },
+      { "date": "2022-10-01", "value": 95 },
+      { "date": "2023-01-01", "value": 105 },
+      { "date": "2023-04-01", "value": 115 },
+      { "date": "2023-07-01", "value": 118 },
+      { "date": "2023-10-01", "value": 115 },
+      { "date": "2024-01-01", "value": 122 },
+      { "date": "2024-04-01", "value": 128 },
+      { "date": "2024-07-01", "value": 132 },
+      { "date": "2024-10-01", "value": 135 },
+      { "date": "2024-11-13", "value": 138 }
+    ],
+    "currentValue": 138,
+    "baseValue": 100,
+    "startDate": "2020-01-01",
+    "endDate": "2024-11-13",
+    "annualizedReturn": 6.7,
+    "maxDrawdown": -15.2
+  }
+}

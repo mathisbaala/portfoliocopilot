@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "1.0",
+  "frontendProductName": "ETF MSCI World",
+  "productType": "ETF",
+  "documentInfo": {
+    "documentType": "PRIIPs KID",
+    "language": "fr",
+    "kidProductionDate": "2024-11-13"
+  },
+  "product": {
+    "name": "iShares MSCI World UCITS ETF",
+    "isin": "IE00B4L5Y983",
+    "currency": "USD",
+    "descriptionShort": "ETF qui réplique l'indice MSCI World regroupant plus de 1 500 entreprises des marchés développés.",
+    "manufacturer": "BlackRock Asset Management",
+    "domicileCountry": "IE",
+    "regulator": "Central Bank of Ireland"
+  },
+  "risk": {
+    "riskIndicator": 6,
+    "riskScaleMin": 1,
+    "riskScaleMax": 7,
+    "recommendedHoldingPeriodYears": 7,
+    "capitalGuarantee": false,
+    "canLoseMoreThanInvested": false
+  },
+  "performanceScenarios": {
+    "baseCurrency": "USD",
+    "baseInvestmentAmount": 10000,
+    "scenarios": [
+      {
+        "type": "stress",
+        "label": "Scénario de tensions",
+        "amountAfterEndOfRecommendedPeriod": 3200
+      },
+      {
+        "type": "unfavourable",
+        "label": "Scénario défavorable",
+        "amountAfterEndOfRecommendedPeriod": 8900
+      },
+      {
+        "type": "moderate",
+        "label": "Scénario intermédiaire",
+        "amountAfterEndOfRecommendedPeriod": 16800
+      },
+      {
+        "type": "favourable",
+        "label": "Scénario favorable",
+        "amountAfterEndOfRecommendedPeriod": 24500
+      }
+    ]
+  },
+  "costs": {
+    "baseInvestmentAmount": 10000,
+    "ongoingChargesPercentPerYear": 0.20,
+    "transactionCostsPercentPerYear": 0.02,
+    "entryFeePercent": 0,
+    "exitFeePercent": 0
+  },
+  "liquidityAndTrading": {
+    "tradedOnExchange": true,
+    "mainExchange": "London Stock Exchange",
+    "ticker": "IWDA",
+    "canRedeemBeforeEndOfPeriod": true
+  },
+  "typeSpecific": {
+    "kind": "ETF",
+    "fundType": "UCITS",
+    "category": "Actions internationales",
+    "index": {
+      "name": "MSCI World Index",
+      "type": "NET_TR",
+      "provider": "MSCI"
+    },
+    "managementStyle": "PASSIVE",
+    "replicationMethod": "PHYSICAL",
+    "peaEligible": false,
+    "distributionPolicy": "ACCUMULATION"
+  },
+  "historicalPerformance": {
+    "dataPoints": [
+      { "date": "2019-11-13", "value": 100 },
+      { "date": "2020-02-13", "value": 110 },
+      { "date": "2020-05-13", "value": 92 },
+      { "date": "2020-08-13", "value": 108 },
+      { "date": "2020-11-13", "value": 115 },
+      { "date": "2021-02-13", "value": 122 },
+      { "date": "2021-05-13", "value": 130 },
+      { "date": "2021-08-13", "value": 135 },
+      { "date": "2021-11-13", "value": 142 },
+      { "date": "2022-02-13", "value": 138 },
+      { "date": "2022-05-13", "value": 125 },
+      { "date": "2022-08-13", "value": 118 },
+      { "date": "2022-11-13", "value": 128 },
+      { "date": "2023-02-13", "value": 135 },
+      { "date": "2023-05-13", "value": 142 },
+      { "date": "2023-08-13", "value": 145 },
+      { "date": "2023-11-13", "value": 152 },
+      { "date": "2024-02-13", "value": 160 },
+      { "date": "2024-05-13", "value": 168 },
+      { "date": "2024-08-13", "value": 172 },
+      { "date": "2024-11-13", "value": 178 }
+    ],
+    "currentValue": 178,
+    "baseValue": 100,
+    "startDate": "2019-11-13",
+    "endDate": "2024-11-13",
+    "annualizedReturn": 12.2,
+    "maxDrawdown": -18.5
+  }
+}

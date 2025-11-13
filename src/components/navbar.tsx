@@ -46,6 +46,17 @@ export function Navbar() {
             <LayoutDashboard className="w-4 h-4" />
             <span>Dashboard</span>
           </Link>
+          <Link
+            href="/product"
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              pathname?.startsWith("/product") 
+                ? "bg-blue-50 text-blue-700 shadow-sm" 
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Produit ETF</span>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">

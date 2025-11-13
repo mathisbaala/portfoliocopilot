@@ -3,13 +3,13 @@
  * Uses localStorage to persist data across sessions
  */
 
-import type { DICData } from "@/types/dic-data";
+import type { FinancialDocument } from "@/types/financial-document";
 
 export interface StoredExtraction {
   id: string;
   fileName: string;
   uploadDate: string;
-  data: DICData;
+  data: FinancialDocument;
 }
 
 const STORAGE_KEY = "portfoliocopilot_extractions";
@@ -33,7 +33,7 @@ export function getStoredExtractions(): StoredExtraction[] {
 /**
  * Save a new extraction to localStorage
  */
-export function saveExtraction(fileName: string, data: DICData): void {
+export function saveExtraction(fileName: string, data: FinancialDocument): void {
   if (typeof window === "undefined") return;
   
   try {
@@ -116,13 +116,13 @@ export function getExtractionStats() {
       validCount++;
     }
     
-    if (data.risque?.niveau) {
-      totalRisk += data.risque.niveau;
-      riskDistribution[data.risque.niveau] = (riskDistribution[data.risque.niveau] || 0) + 1;
+    if (data.risque?.indicateurSynthetique?.niveau) {
+      totalRisk += data.risque.indicateurSynthetique.niveau;
+      riskDistribution[data.risque.indicateurSynthetique.niveau] = (riskDistribution[data.risque.indicateurSynthetique.niveau] || 0) + 1;
     }
     
-    if (data.frais?.gestionAnnuels !== undefined) {
-      totalFees += data.frais.gestionAnnuels;
+    if (data.frais?.gestion?.tauxAnnuel !== undefined) {
+      totalFees += data.frais.gestion.tauxAnnuel;
     }
   }
   

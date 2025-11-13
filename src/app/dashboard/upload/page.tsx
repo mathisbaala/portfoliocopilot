@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import type { DICData } from "@/types/dic-data";
+import type { FinancialDocument } from "@/types/financial-document";
 import { saveExtraction } from "@/lib/storage";
 
 interface UploadedFile {
@@ -14,7 +14,7 @@ interface UploadedFile {
   id: string;
   status: "uploading" | "extracting" | "success" | "error";
   progress: number;
-  data?: DICData;
+  data?: FinancialDocument;
   error?: string;
 }
 
@@ -78,7 +78,7 @@ export default function UploadPage() {
         throw new Error(extractData.error);
       }
 
-      const data: DICData = extractData;
+      const data: FinancialDocument = extractData;
       updateFileStatus(uploadedFile.id, "extracting", 90);
 
       // 3. Success
@@ -151,7 +151,7 @@ export default function UploadPage() {
     id: string,
     status: UploadedFile["status"],
     progress: number,
-    data?: DICData,
+    data?: FinancialDocument,
     error?: string
   ) => {
     setFiles((prev) =>
@@ -363,25 +363,25 @@ export default function UploadPage() {
                             <div className="bg-slate-50 px-3 py-2 rounded-lg">
                               <div className="text-slate-500">Émetteur</div>
                               <div className="font-semibold text-slate-900 truncate">
-                                {file.data.general.emetteur}
+                                {file.data.identite?.emetteur?.nom || 'N/A'}
                               </div>
                             </div>
                             <div className="bg-slate-50 px-3 py-2 rounded-lg">
                               <div className="text-slate-500">Risque</div>
                               <div className="font-semibold text-slate-900">
-                                {file.data.risque.niveau}/7
+                                {file.data.risque?.indicateurSynthetique?.niveau || 'N/A'}/7
                               </div>
                             </div>
                             <div className="bg-slate-50 px-3 py-2 rounded-lg">
                               <div className="text-slate-500">Frais</div>
                               <div className="font-semibold text-slate-900">
-                                {file.data.frais.gestionAnnuels}%
+                                {file.data.frais?.gestion?.tauxAnnuel || 'N/A'}%
                               </div>
                             </div>
                             <div className="bg-slate-50 px-3 py-2 rounded-lg">
-                              <div className="text-slate-500">Horizon</div>
+                              <div className="text-slate-500">Produit</div>
                               <div className="font-semibold text-slate-900 truncate">
-                                {file.data.horizon.recommande}
+                                {file.data.identite?.produit?.nom || 'N/A'}
                               </div>
                             </div>
                           </div>

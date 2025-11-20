@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={inter.variable}>
       <body className="min-h-screen antialiased bg-white w-full overflow-x-hidden font-sans">
         <Navbar />
-        <main className="w-full py-8 sm:py-12 md:py-16">{children}</main>
+        <main className="w-full">{children}</main>
         <Footer />
         <Toaster richColors position="top-right" />
       </body>

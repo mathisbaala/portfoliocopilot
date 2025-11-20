@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0",
+  "frontendProductName": "ETF S&P 500 Acc",
+  "productType": "ETF",
+  "documentInfo": {
+    "documentType": "PRIIPs KID",
+    "language": "fr",
+    "kidProductionDate": "2025-02-25"
+  },
+  "product": {
+    "name": "Amundi PEA S&P 500 UCITS ETF Acc",
+    "isin": "FR0011871128",
+    "currency": "EUR",
+    "descriptionShort": "ETF qui suit l'indice S&P 500 (500 grandes actions américaines de large capitalisation).",
+    "manufacturer": "Amundi Asset Management",
+    "domicileCountry": "FR",
+    "regulator": "AMF"
+  },
+  "risk": {
+    "riskIndicator": 5,
+    "riskScaleMin": 1,
+    "riskScaleMax": 7,
+    "recommendedHoldingPeriodYears": 5,
+    "capitalGuarantee": false,
+    "canLoseMoreThanInvested": false
+  },
+  "performanceScenarios": {
+    "baseCurrency": "EUR",
+    "baseInvestmentAmount": 10000,
+    "scenarios": [
+      {
+        "type": "stress",
+        "label": "Scénario de tensions",
+        "amountAfterEndOfRecommendedPeriod": 2880
+      },
+      {
+        "type": "unfavourable",
+        "label": "Scénario défavorable",
+        "amountAfterEndOfRecommendedPeriod": 11940
+      },
+      {
+        "type": "moderate",
+        "label": "Scénario intermédiaire",
+        "amountAfterEndOfRecommendedPeriod": 17470
+      },
+      {
+        "type": "favourable",
+        "label": "Scénario favorable",
+        "amountAfterEndOfRecommendedPeriod": 20910
+      }
+    ]
+  },
+  "costs": {
+    "baseInvestmentAmount": 10000,
+    "ongoingChargesPercentPerYear": 0.12,
+    "transactionCostsPercentPerYear": 0.0,
+    "entryFeePercent": 0.0,
+    "exitFeePercent": 0.0
+  },
+  "liquidityAndTrading": {
+    "tradedOnExchange": true,
+    "mainExchange": "Euronext Paris",
+    "ticker": "PE500",
+    "canRedeemBeforeEndOfPeriod": true
+  },
+  "typeSpecific": {
+    "kind": "ETF",
+    "fundType": "UCITS",
+    "category": "Actions internationales",
+    "index": {
+      "name": "S&P 500 Net Total Return",
+      "type": "NET_TR",
+      "provider": "S&P"
+    },
+    "managementStyle": "PASSIVE",
+    "replicationMethod": "SYNTHETIC",
+    "peaEligible": true,
+    "distributionPolicy": "ACCUMULATION"
+  }
+}

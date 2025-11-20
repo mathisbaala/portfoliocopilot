@@ -2,12 +2,44 @@
 
 Portfolio Copilot est une application Next.js permettant d'analyser simplement les produits financiers à partir de leurs Documents d'Information Clé (DIC).
 
+## ✨ Nouvelle fonctionnalité : Dashboard Produits Financiers
+
+Le projet inclut maintenant un **dashboard interactif complet** pour afficher les informations d'un produit financier (ETF, OPCVM, etc.) à partir d'un fichier JSON standardisé.
+
+### 🎯 Fonctionnalités du dashboard
+
+- 📊 **Graphique historique interactif** avec filtres temporels (1an, 3ans, 5ans, Max)
+- 💰 **Simulateur d'investissement** avec montants personnalisables
+- 📈 **4 scénarios de performance** (stress, défavorable, intermédiaire, favorable)
+- 🎨 **KPI Cards** pour les métriques clés (risque, frais, bourse)
+- 📋 **Informations légales** en accordéon (ISIN, régulateur, documentation)
+- 📱 **Design responsive** et moderne
+
+### 🚀 Accéder au dashboard
+
+1. Lancer le serveur : `npm run dev`
+2. Aller sur : `http://localhost:3000/product`
+
+### 📖 Documentation complète
+
+- **[PRODUCT_DASHBOARD.md](PRODUCT_DASHBOARD.md)** - Guide d'utilisation du dashboard
+- **[CREATING_PRODUCTS.md](CREATING_PRODUCTS.md)** - Comment créer vos propres fichiers JSON
+
+### 🎨 Exemples fournis
+
+Deux fichiers d'exemple sont inclus dans `src/data/` :
+- `amundi-cac40-etf.json` - ETF CAC 40 (Amundi)
+- `sample-msci-world.json` - ETF MSCI World (BlackRock)
+
+---
+
 ## 🚀 Stack technique
 
 - **Framework:** Next.js 15 (App Router)
 - **UI:** React 19, TypeScript
 - **Styling:** Tailwind CSS v4
 - **Composants:** shadcn/ui + Radix UI
+- **Graphiques:** Recharts (pour le dashboard produits)
 - **Animations:** framer-motion
 - **Icônes:** lucide-react
 - **Notifications:** sonner

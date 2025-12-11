@@ -1,35 +1,38 @@
 # Portfolio Copilot
 
-Portfolio Copilot est une application Next.js permettant d'analyser simplement les produits financiers à partir de leurs Documents d'Information Clé (DIC).
+Application Next.js pour analyser les produits financiers à partir de leurs Documents d'Information Clé (DIC/KID).
 
-## ✨ Nouvelle fonctionnalité : Dashboard Produits Financiers
+## 🎯 Fonctionnalités principales
 
-Le projet inclut maintenant un **dashboard interactif complet** pour afficher les informations d'un produit financier (ETF, OPCVM, etc.) à partir d'un fichier JSON standardisé.
+### 📄 Extraction PDF → JSON (Feature principale)
 
-### 🎯 Fonctionnalités du dashboard
+Extraction automatique des données financières depuis un PDF (DIC/KID) vers un JSON structuré via OpenAI GPT-4o.
 
-- 📊 **Graphique historique interactif** avec filtres temporels (1an, 3ans, 5ans, Max)
-- 💰 **Simulateur d'investissement** avec montants personnalisables
-- 📈 **4 scénarios de performance** (stress, défavorable, intermédiaire, favorable)
-- 🎨 **KPI Cards** pour les métriques clés (risque, frais, bourse)
-- 📋 **Informations légales** en accordéon (ISIN, régulateur, documentation)
-- 📱 **Design responsive** et moderne
+**Endpoint:** `POST /api/extract`
 
-### 🚀 Accéder au dashboard
+```bash
+curl -X POST http://localhost:3000/api/extract \
+  -H "Content-Type: application/json" \
+  -d '{"fileUrl": "https://example.com/document.pdf", "fileName": "doc.pdf"}'
+```
 
-1. Lancer le serveur : `npm run dev`
-2. Aller sur : `http://localhost:3000/product`
+**Réponse:** JSON structuré avec métadonnées, identité produit, risques, frais, performance, scénarios.
 
-### 📖 Documentation complète
+### 📊 Dashboard Produits
 
-- **[PRODUCT_DASHBOARD.md](PRODUCT_DASHBOARD.md)** - Guide d'utilisation du dashboard
-- **[CREATING_PRODUCTS.md](CREATING_PRODUCTS.md)** - Comment créer vos propres fichiers JSON
+- Graphique historique interactif (1an, 3ans, 5ans, Max)
+- Simulateur d'investissement
+- 4 scénarios de performance
+- KPI Cards (risque, frais, bourse)
+- Informations légales
 
-### 🎨 Exemples fournis
+**URL:** `http://localhost:3000/product`
 
-Deux fichiers d'exemple sont inclus dans `src/data/` :
-- `amundi-cac40-etf.json` - ETF CAC 40 (Amundi)
-- `sample-msci-world.json` - ETF MSCI World (BlackRock)
+### � Upload de documents
+
+Interface pour uploader des PDFs vers Supabase Storage.
+
+**URL:** `http://localhost:3000/dashboard/upload`
 
 ---
 

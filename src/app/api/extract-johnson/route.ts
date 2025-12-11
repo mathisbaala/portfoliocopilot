@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { JohnsonData } from "@/types/johnson";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 const JOHNSON_SYSTEM_PROMPT = `Tu es un agent d'analyse de documents financiers spécialisé dans les DIC/KID, prospectus de fonds, ETF et produits structurés.
 
@@ -128,6 +130,7 @@ RÉPONDS UNIQUEMENT AVEC LE JSON COMPLET (tous les champs requis).`;
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const openai = getOpenAIClient();
   
   try {
     const body = await req.json();

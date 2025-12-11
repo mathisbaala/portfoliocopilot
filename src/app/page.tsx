@@ -75,9 +75,9 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
-            <Link href="/dashboard" className="w-full sm:w-auto">
+            <Link href="/signup" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto group">
-                Accéder au dashboard
+                Créer un compte gratuit
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -178,12 +178,12 @@ export default function HomePage() {
               <p className="text-lg sm:text-xl text-white/90 mb-8 max-w-2xl mx-auto px-2">
                 Rejoignez les professionnels qui font confiance à Portfolio Copilot
               </p>
-              <Link href="/dashboard">
+              <Link href="/signup">
                 <Button 
                   size="lg" 
                   className="bg-white text-blue-700 hover:bg-blue-50 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200 font-semibold"
                 >
-                  Commencer maintenant
+                  Créer un compte gratuit
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>

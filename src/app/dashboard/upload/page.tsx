@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { Upload, FileText, X, Loader2, CheckCircle2, AlertCircle, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import type { FinancialDocument } from "@/types/financial-document";
 import { saveExtraction } from "@/lib/storage";
 
@@ -16,11 +17,14 @@ interface UploadedFile {
   progress: number;
   data?: FinancialDocument;
   error?: string;
+  /** ID de stockage pour naviguer vers le dashboard */
+  storageId?: string;
 }
 
 export default function UploadPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const router = useRouter();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -84,8 +88,15 @@ export default function UploadPage() {
       // 3. Success
       updateFileStatus(uploadedFile.id, "success", 100, data);
       
-      // Save to localStorage
-      saveExtraction(uploadedFile.file.name, data);
+      // Save to localStorage and get the storage ID
+      const storageId = saveExtraction(uploadedFile.file.name, data);
+      
+      // Update the file with the storage ID
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === uploadedFile.id ? { ...f, storageId } : f
+        )
+      );
       
       const confidence = ((data.extraction?.confidence || 0) * 100).toFixed(0);
       toast.success(`✅ ${uploadedFile.file.name} analysé avec succès ! (confiance: ${confidence}%)`);
@@ -385,14 +396,30 @@ export default function UploadPage() {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadJSON(file)}
-                            className="w-full sm:w-auto"
-                          >
-                            📥 Télécharger JSON
-                          </Button>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (file.storageId) {
+                                  router.push(`/product/extracted/${file.storageId}`);
+                                }
+                              }}
+                              disabled={!file.storageId}
+                              className="w-full sm:w-auto"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Voir le produit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadJSON(file)}
+                              className="w-full sm:w-auto"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Télécharger JSON
+                            </Button>
+                          </div>
                         </div>
                       )}
 

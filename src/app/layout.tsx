@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { AuthProvider } from "@/context/auth-context";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -20,10 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={inter.variable}>
       <body className="min-h-screen antialiased bg-white w-full overflow-x-hidden font-sans">
-        <Navbar />
-        <main className="w-full">{children}</main>
-        <Footer />
-        <Toaster richColors position="top-right" />
+        <AuthProvider>
+          <Navbar />
+          <main className="w-full">{children}</main>
+          <Footer />
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   );

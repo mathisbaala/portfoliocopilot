@@ -4,12 +4,16 @@
  */
 
 import type { FinancialDocument } from "@/types/financial-document";
+import type { FinancialProduct } from "@/types/financial-product";
+import { convertToFinancialProduct } from "./document-converter";
 
 export interface StoredExtraction {
   id: string;
   fileName: string;
   uploadDate: string;
   data: FinancialDocument;
+  /** FinancialProduct converti pour le dashboard v2 */
+  productData?: FinancialProduct;
 }
 
 const STORAGE_KEY = "portfoliocopilot_extractions";
@@ -32,17 +36,24 @@ export function getStoredExtractions(): StoredExtraction[] {
 
 /**
  * Save a new extraction to localStorage
+ * Automatically converts to FinancialProduct for dashboard v2
  */
-export function saveExtraction(fileName: string, data: FinancialDocument): void {
-  if (typeof window === "undefined") return;
+export function saveExtraction(fileName: string, data: FinancialDocument): string {
+  if (typeof window === "undefined") return "";
   
   try {
     const extractions = getStoredExtractions();
+    const id = crypto.randomUUID();
+    
+    // Convertir en FinancialProduct pour le dashboard v2
+    const productData = convertToFinancialProduct(data);
+    
     const newExtraction: StoredExtraction = {
-      id: crypto.randomUUID(),
+      id,
       fileName,
       uploadDate: new Date().toISOString(),
       data,
+      productData,
     };
     
     extractions.unshift(newExtraction); // Add to beginning
@@ -51,9 +62,20 @@ export function saveExtraction(fileName: string, data: FinancialDocument): void 
     const trimmed = extractions.slice(0, 50);
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    
+    return id;
   } catch (error) {
     console.error("Failed to save extraction:", error);
+    return "";
   }
+}
+
+/**
+ * Get a specific extraction by ID
+ */
+export function getExtractionById(id: string): StoredExtraction | null {
+  const extractions = getStoredExtractions();
+  return extractions.find(e => e.id === id) || null;
 }
 
 /**

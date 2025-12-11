@@ -3,14 +3,29 @@
 import { Risk, HistoricalPerformance } from "@/types/financial-product";
 import { AlertTriangle, Shield, TrendingDown } from "lucide-react";
 
-interface Section3RiskProps {
-  risk: Risk;
+interface RiskSectionProps {
+  risk?: Risk;
   historicalPerformance?: HistoricalPerformance;
-  productType: string;
+  productType?: string;
   distributorName?: string;
 }
 
-export function Section3Risk({ risk, historicalPerformance, productType, distributorName }: Section3RiskProps) {
+/**
+ * Section 3 : Qu'est-ce que je risque ?
+ * Détaille l'évaluation et les indicateurs de risque
+ */
+export function RiskSection({ risk, historicalPerformance, productType = "ETF", distributorName }: RiskSectionProps) {
+  // Placeholder si les données ne sont pas fournies
+  if (!risk) {
+    return (
+      <div className="p-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+        <p className="text-center text-slate-600 text-sm">
+          📋 Données de risque manquantes
+        </p>
+      </div>
+    );
+  }
+
   // Générer l'échelle de risque 1-7
   const riskScale = Array.from({ length: 7 }, (_, i) => i + 1);
   

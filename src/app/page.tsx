@@ -43,17 +43,6 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100/20 via-transparent to-transparent" />
 
         <div className="relative mx-auto max-w-5xl text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-blue-100/50 border border-blue-200/50 text-blue-700 text-sm font-semibold mb-6 shadow-sm">
-              <Sparkles className="w-4 h-4 animate-pulse" />
-              <span>Powered by AI</span>
-            </div>
-          </motion.div>
-
           <motion.h1
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight px-2 mb-6"
             initial={{ opacity: 0, y: 20 }}

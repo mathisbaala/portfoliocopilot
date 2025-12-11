@@ -7,6 +7,7 @@ export interface FinancialProduct {
   schemaVersion: string;
   frontendProductName?: string;
   productType: "ETF" | "OPCVM" | "FCP" | "SICAV";
+  distributorName?: string;
   documentInfo: DocumentInfo;
   product: Product;
   risk: Risk;

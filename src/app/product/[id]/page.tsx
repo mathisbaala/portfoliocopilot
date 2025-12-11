@@ -1,5 +1,5 @@
 import { FinancialProduct } from "@/types/financial-product";
-import { FinancialProductDashboard } from "@/components/product/financial-product-dashboard";
+import { ProductEtfDashboardV2 } from "@/components/product/product-etf-dashboard-v2";
 import { availableProducts } from "@/config/products";
 import { notFound } from "next/navigation";
 
@@ -33,5 +33,5 @@ export default async function ProductPage({
     notFound();
   }
   
-  return <FinancialProductDashboard data={product} />;
+  return <ProductEtfDashboardV2 data={product} />;
 }

@@ -98,12 +98,13 @@ export function FinancialProductDashboard({
             risk={data.risk}
             historicalPerformance={data.historicalPerformance}
             productType={data.productType}
+            distributorName={data.distributorName}
           />
         </QuestionSection>
 
-        {/* Section 4 : Puis-je rentrer / sortir ? */}
+        {/* Section 4 : Puis-je entrer et sortir quand je veux ? */}
         <QuestionSection 
-          question="Puis-je entrer / sortir quand je veux ?"
+          question="Puis-je entrer et sortir quand je veux ?"
           onMoreDetails={() => handleMoreDetails("liquidity")}
         >
           <Section4Liquidity 

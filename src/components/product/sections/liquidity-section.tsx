@@ -3,12 +3,27 @@
 import { LiquidityAndTrading, TypeSpecific } from "@/types/financial-product";
 import { Check, Clock, Lock, ArrowRight, Unlock, AlertCircle } from "lucide-react";
 
-interface Section4LiquidityProps {
-  liquidityAndTrading: LiquidityAndTrading;
-  typeSpecific: TypeSpecific;
+interface LiquiditySectionProps {
+  liquidityAndTrading?: LiquidityAndTrading;
+  typeSpecific?: TypeSpecific;
 }
 
-export function Section4Liquidity({ liquidityAndTrading, typeSpecific }: Section4LiquidityProps) {
+/**
+ * Section 4 : Puis-je entrer et sortir quand je veux ?
+ * Explique les conditions de liquidité et de rachat
+ */
+export function LiquiditySection({ liquidityAndTrading, typeSpecific }: LiquiditySectionProps) {
+  // Placeholder si les données ne sont pas fournies
+  if (!liquidityAndTrading || !typeSpecific) {
+    return (
+      <div className="p-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+        <p className="text-center text-slate-600 text-sm">
+          📋 Données de liquidité manquantes
+        </p>
+      </div>
+    );
+  }
+
   // Informations sur la liquidité selon le type de produit
   const isHighlyLiquid = liquidityAndTrading.tradedOnExchange && typeSpecific.kind === "ETF";
 

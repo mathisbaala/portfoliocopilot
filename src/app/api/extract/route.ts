@@ -1,10 +1,123 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import type { FinancialDocument } from "@/types/financial-document";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
+
+const SYSTEM_PROMPT = `Tu es un expert financier certifié CFA spécialisé dans l'analyse de documents réglementaires PRIIPS/KID/DIC.
+
+MISSION: Extraire avec PRÉCISION ABSOLUE toutes les données du document financier.
+
+RÈGLES CRITIQUES:
+
+1. CHIFFRES - Extraire les valeurs EXACTES:
+   - Pourcentages: format décimal (0.25% = 0.25, 15% = 15.00)
+   - Montants: nombres entiers ou décimaux
+   - Ne JAMAIS arrondir ou modifier
+
+2. SCÉNARIOS DE PERFORMANCE (très important):
+   - Lire le tableau ligne par ligne
+   - Pour chaque scénario extraire: montant à 1 an, rendement 1 an, montant horizon, rendement moyen annuel
+   - Les rendements négatifs gardent le signe moins
+
+3. FRAIS:
+   - Frais entrée/sortie
+   - Frais de gestion annuels
+   - Coûts de transaction  
+   - Impact total en EUR et %
+
+4. RISQUE:
+   - SRI (1-7) avec description exacte
+   - Tous les risques mentionnés
+
+STRUCTURE JSON À RETOURNER:
+
+{
+  "produit": {
+    "nom": "nom commercial",
+    "isin": "code ISIN",
+    "ticker": "ticker si disponible",
+    "devise": "EUR",
+    "typeInstrument": "ETF/OPCVM/FCP",
+    "indiceBenchmark": "indice de référence",
+    "zoneGeographique": "zone",
+    "classification": "Actions/Obligations/etc",
+    "eligiblePEA": true/false,
+    "horizonRecommande": "X ans",
+    "dateDocument": "YYYY-MM-DD"
+  },
+  
+  "emetteur": {
+    "nom": "société de gestion",
+    "adresse": "adresse complète",
+    "siteWeb": "URL",
+    "telephone": "numéro",
+    "agrement": "agrément AMF"
+  },
+  
+  "risque": {
+    "niveau": 1-7,
+    "description": "description du niveau",
+    "risquesPrincipaux": ["liste des risques"],
+    "garantieCapital": false,
+    "perteMaxPossible": "peut perdre la totalité"
+  },
+  
+  "frais": {
+    "entree": { "taux": 0.00, "montant10000": "X EUR" },
+    "sortie": { "taux": 0.00, "montant10000": "X EUR" },
+    "gestionAnnuelle": { "taux": 0.00 },
+    "transaction": { "taux": 0.00 },
+    "performance": { "taux": 0.00 },
+    "totalAnnuel": { "taux": 0.00, "impact10000_1an": "X EUR", "impact10000_5ans": "X EUR" }
+  },
+  
+  "scenarios": {
+    "investissement": 10000,
+    "horizon": "5 ans",
+    "stress": {
+      "montant1an": 0,
+      "rendement1an": -00.00,
+      "montantHorizon": 0,
+      "rendementMoyenAnnuel": -00.00
+    },
+    "defavorable": {
+      "montant1an": 0,
+      "rendement1an": -00.00,
+      "montantHorizon": 0,
+      "rendementMoyenAnnuel": -00.00
+    },
+    "intermediaire": {
+      "montant1an": 0,
+      "rendement1an": 0.00,
+      "montantHorizon": 0,
+      "rendementMoyenAnnuel": 0.00
+    },
+    "favorable": {
+      "montant1an": 0,
+      "rendement1an": 0.00,
+      "montantHorizon": 0,
+      "rendementMoyenAnnuel": 0.00
+    }
+  },
+  
+  "strategie": {
+    "objectif": "objectif d'investissement",
+    "methode": "réplication physique/synthétique",
+    "distribution": "capitalisation/distribution"
+  },
+  
+  "contact": {
+    "information": "où obtenir plus d'infos",
+    "reclamation": "email/adresse réclamations"
+  }
+}
+
+RÈGLES FINALES:
+- Si une donnée n'existe pas: null
+- Ne JAMAIS inventer
+- Retourner UNIQUEMENT le JSON valide`;
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -19,381 +132,44 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`\n📄 EXTRACTION: ${fileName}`);
+    console.log("\n📄 EXTRACTION:", fileName);
     
     // 1. Télécharger le PDF
-    console.log(`📥 Téléchargement...`);
+    console.log("📥 Téléchargement...");
     const pdfResponse = await fetch(fileUrl);
     if (!pdfResponse.ok) {
-      throw new Error(`Erreur téléchargement: ${pdfResponse.status}`);
+      throw new Error("Erreur téléchargement: " + pdfResponse.status);
     }
     
     const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
     
-    // 2. Validation PDF
-    if (!pdfBuffer.slice(0, 4).toString().startsWith('%PDF')) {
+    if (!pdfBuffer.slice(0, 4).toString().startsWith("%PDF")) {
       throw new Error("Fichier invalide (pas un PDF)");
     }
     
-    const sizeMB = (pdfBuffer.length / 1024 / 1024).toFixed(2);
-    console.log(`✅ PDF téléchargé: ${sizeMB}MB`);
+    console.log("✅ PDF:", (pdfBuffer.length / 1024 / 1024).toFixed(2) + "MB");
     
-    // 3. Upload du PDF vers OpenAI Files API
-    console.log(`📤 Upload vers OpenAI...`);
+    // 2. Upload vers OpenAI
+    console.log("📤 Upload OpenAI...");
     const file = await openai.files.create({
-      file: new File([pdfBuffer], fileName, { type: 'application/pdf' }),
-      purpose: 'assistants',
+      file: new File([pdfBuffer], fileName, { type: "application/pdf" }),
+      purpose: "assistants",
     });
     
-    console.log(`✅ Fichier OpenAI: ${file.id}`);
-    
-    // 4. Créer un Assistant temporaire
-    console.log(`🤖 Création Assistant GPT-4o...`);
+    // 3. Créer Assistant
+    console.log("🤖 Création Assistant...");
     const assistant = await openai.beta.assistants.create({
-      name: "Analyseur Expert PDF Financier",
+      name: "Expert PRIIPS Extraction",
       model: "gpt-4o",
-      instructions: `Tu es un expert financier certifié en analyse de documents DIC/KID/PRIIPS. 
-
-MISSION: Extraire TOUTES les informations du document de manière EXHAUSTIVE et PRÉCISE.
-
-STRUCTURE JSON COMPLÈTE À RETOURNER:
-
-{
-  "metadata": {
-    "documentName": "nom du fichier",
-    "dateDocument": "date du document (YYYY-MM-DD)",
-    "dateProduction": "date de production",
-    "version": "version du document",
-    "langue": "langue (FR/EN/etc)",
-    "regulateur": "AMF/ESMA/etc",
-    "typeDocument": "DIC/KID/PRIIPS"
-  },
-  
-  "identite": {
-    "emetteur": {
-      "nom": "nom complet de la société de gestion",
-      "groupe": "groupe d'appartenance",
-      "siteweb": "URL du site web",
-      "telephone": "numéro",
-      "email": "email contact",
-      "adresse": "adresse complète",
-      "agrement": "numéro d'agrément AMF/ESMA"
-    },
-    "produit": {
-      "nom": "nom commercial complet",
-      "nomLegal": "nom légal/officiel",
-      "isin": "code ISIN",
-      "categorieAMF": "catégorie AMF",
-      "categorieSRRI": "catégorie SRRI/SRI",
-      "formJuridique": "SICAV/FCP/ETF/etc",
-      "dateCreation": "date de création",
-      "dateLancement": "date de lancement",
-      "dureeVie": "durée de vie du produit",
-      "devise": "devise de référence",
-      "devisesPossibles": ["liste des devises possibles"],
-      "eligiblePEA": true/false,
-      "eligibleAV": true/false
-    }
-  },
-  
-  "classification": {
-    "categoriesPrincipales": ["actions", "obligations", "monétaire", "etc"],
-    "zoneGeographique": ["Europe", "Monde", "etc"],
-    "secteurs": ["technologie", "santé", "etc"],
-    "styleGestion": "gestion active/passive/quantitative",
-    "indiceBenchmark": "nom de l'indice de référence",
-    "trackingError": "tracking error si applicable"
-  },
-  
-  "risque": {
-    "indicateurSynthetique": {
-      "niveau": 1-7,
-      "description": "description complète du niveau",
-      "methodologie": "explication de la méthodologie"
-    },
-    "risquesPrincipaux": [
-      {
-        "type": "risque de marché/crédit/liquidité/etc",
-        "description": "description détaillée",
-        "niveau": "faible/modéré/élevé",
-        "mesuresAttenuation": "mesures prises"
-      }
-    ],
-    "risquesSecondaires": ["liste des risques secondaires"],
-    "risquesNonRefletes": "risques non reflétés dans l'indicateur",
-    "volatilite": {
-      "annuelle": "X%",
-      "historique": "données historiques si disponibles"
-    },
-    "VaR": "Value at Risk si disponible",
-    "drawdownMax": "perte maximale historique",
-    "stressScenarios": "résultats des tests de stress"
-  },
-  
-  "frais": {
-    "entree": {
-      "taux": X.XX,
-      "description": "description",
-      "montantExemple": "sur 10000€ = X€"
-    },
-    "sortie": {
-      "taux": X.XX,
-      "description": "description",
-      "conditions": "conditions de sortie"
-    },
-    "gestion": {
-      "tauxAnnuel": X.XX,
-      "description": "frais de gestion annuels",
-      "inclus": ["ce qui est inclus"]
-    },
-    "performance": {
-      "taux": X.XX,
-      "conditions": "conditions de prélèvement",
-      "benchmark": "référence pour le calcul"
-    },
-    "courantsAnnuels": {
-      "taux": X.XX,
-      "description": "tous frais courants",
-      "detail": "détail des composantes"
-    },
-    "transaction": {
-      "taux": X.XX,
-      "description": "coûts de transaction"
-    },
-    "total": {
-      "annuel": X.XX,
-      "impactSur10000": "impact sur 10000€",
-      "impactSurDuree": "impact sur durée recommandée"
-    },
-    "fraisAnnexes": [
-      {
-        "type": "type de frais",
-        "montant": X.XX,
-        "conditions": "conditions"
-      }
-    ]
-  },
-  
-  "performance": {
-    "historique": {
-      "1an": X.XX,
-      "3ans": X.XX,
-      "5ans": X.XX,
-      "10ans": X.XX,
-      "depuisCreation": X.XX
-    },
-    "anneeParAnnee": [
-      { "annee": 2024, "performance": X.XX },
-      { "annee": 2023, "performance": X.XX }
-    ],
-    "vsComparaison": {
-      "indiceBenchmark": "nom",
-      "performanceBenchmark": X.XX,
-      "difference": X.XX
-    },
-    "meilleureAnnee": { "annee": XXXX, "performance": X.XX },
-    "pireAnnee": { "annee": XXXX, "performance": X.XX }
-  },
-  
-  "scenarios": {
-    "contexte": "période d'investissement et montant",
-    "stress": {
-      "description": "scénario de stress",
-      "montantFinal": "montant après 1 an",
-      "rendementMoyen": X.XX,
-      "probabilite": "probabilité d'occurrence"
-    },
-    "defavorable": {
-      "description": "scénario défavorable",
-      "montantFinal": "montant après X ans",
-      "rendementMoyen": X.XX,
-      "rendementAnnuel": X.XX
-    },
-    "intermediaire": {
-      "description": "scénario intermédiaire",
-      "montantFinal": "montant après X ans",
-      "rendementMoyen": X.XX,
-      "rendementAnnuel": X.XX
-    },
-    "favorable": {
-      "description": "scénario favorable",
-      "montantFinal": "montant après X ans",
-      "rendementMoyen": X.XX,
-      "rendementAnnuel": X.XX
-    },
-    "notesExplicatives": "notes sur les scénarios"
-  },
-  
-  "strategie": {
-    "objectifGestion": "objectif principal détaillé",
-    "objectifsSecondaires": ["liste objectifs secondaires"],
-    "politiqueInvestissement": "description complète de la politique",
-    "universInvestissement": "univers d'investissement",
-    "processusSelection": "processus de sélection des titres",
-    "allocation": {
-      "actions": { "min": X, "max": Y, "cible": Z },
-      "obligations": { "min": X, "max": Y, "cible": Z },
-      "monetaire": { "min": X, "max": Y, "cible": Z },
-      "autres": { "min": X, "max": Y, "cible": Z }
-    },
-    "exposition": {
-      "directe": "exposition directe",
-      "derivees": "utilisation de dérivés",
-      "effet_levier": "effet de levier max"
-    },
-    "esg": {
-      "approche": "approche ESG",
-      "exclusions": ["secteurs exclus"],
-      "integration": "niveau d'intégration ESG",
-      "label": "label ISR/Greenfin/etc"
-    },
-    "rebalancement": "fréquence et méthode de rebalancement"
-  },
-  
-  "operationnel": {
-    "souscription": {
-      "montantMinimum": "montant minimum",
-      "montantMinimumSubsequent": "souscriptions suivantes",
-      "periodicite": "quotidien/hebdo/etc",
-      "heureClotureOrdres": "heure limite",
-      "delaiReglement": "J+X",
-      "moyensPaiement": ["virement", "prélèvement", "etc"]
-    },
-    "rachat": {
-      "montantMinimum": "montant minimum de rachat",
-      "periodicite": "quotidien/hebdo/etc",
-      "heureClotureOrdres": "heure limite",
-      "delaiReglement": "J+X",
-      "partiel": true/false,
-      "total": true/false
-    },
-    "valeurLiquidative": {
-      "frequenceCalcul": "quotidien/hebdo",
-      "publicationOu": "où trouver la VL",
-      "devise": "devise de calcul"
-    },
-    "fiscalite": {
-      "regime": "régime fiscal applicable",
-      "prelevement": "prélèvement à la source",
-      "plusValues": "taxation des plus-values",
-      "dividendes": "taxation des dividendes",
-      "ifi": "assujettissement IFI"
-    }
-  },
-  
-  "acteurs": {
-    "societeGestion": {
-      "nom": "nom",
-      "role": "rôle",
-      "agrement": "agrément"
-    },
-    "depositaire": {
-      "nom": "nom",
-      "role": "rôle"
-    },
-    "administrateurs": ["liste"],
-    "commissaireComptes": "nom du CAC",
-    "distributeurs": ["liste des distributeurs"],
-    "conseillers": ["conseillers en investissement"]
-  },
-  
-  "informations": {
-    "prospectus": {
-      "url": "URL du prospectus",
-      "dateMAJ": "date mise à jour"
-    },
-    "rapportsAnnuels": {
-      "url": "URL des rapports",
-      "frequence": "fréquence de publication"
-    },
-    "informationsCles": {
-      "url": "URL du DIC",
-      "langues": ["FR", "EN"]
-    },
-    "reclamation": {
-      "procedure": "procédure de réclamation",
-      "adresse": "adresse",
-      "email": "email",
-      "delaiReponse": "délai de réponse"
-    },
-    "mediateur": {
-      "nom": "nom du médiateur",
-      "coordonnees": "coordonnées"
-    }
-  },
-  
-  "compliance": {
-    "mifid": {
-      "categorisation": "professionnel/particulier",
-      "adequation": "évaluation d'adéquation requise",
-      "appropriation": "évaluation d'appropriation requise"
-    },
-    "protectionCapital": {
-      "garantie": true/false,
-      "niveau": "% de garantie si applicable",
-      "conditions": "conditions de garantie"
-    },
-    "indemnisation": {
-      "systemeFGDR": true/false,
-      "montantMax": "montant max indemnisation"
-    }
-  },
-  
-  "extraction": {
-    "success": true,
-    "confidence": 0-1,
-    "champsExtraits": XX,
-    "champsManquants": ["liste si applicable"],
-    "errors": [],
-    "warnings": [],
-    "qualityScore": X.XX
-  }
-}
-
-RÈGLES STRICTES:
-1. Extraire TOUTES les données présentes dans le document
-2. Si une donnée est absente, mettre null ou []
-3. AUCUNE invention - seulement les données réelles du PDF
-4. Chiffres avec 2 décimales
-5. Dates au format ISO (YYYY-MM-DD)
-6. Pourcentages en décimal (5% = 5.00, pas 0.05)
-7. Être EXHAUSTIF - ne rien omettre
-8. Retourner UNIQUEMENT le JSON, sans texte avant/après`,
+      instructions: SYSTEM_PROMPT,
       tools: [{ type: "file_search" }],
     });
     
-    // 5. Créer un Thread avec le fichier
-    console.log(`💬 Création Thread...`);
+    // 4. Créer Thread
     const thread = await openai.beta.threads.create({
       messages: [{
         role: "user",
-        content: `Analyse en profondeur ce document financier DIC/KID/PRIIPS.
-
-OBJECTIF: Produire un JSON EXHAUSTIF avec TOUTES les informations du document.
-
-SECTIONS À EXTRAIRE (si présentes):
-• Métadonnées complètes du document
-• Identité émetteur et produit (tous les détails)
-• Classification et catégorisation
-• Risques (tous types, avec descriptions détaillées)
-• Frais (tous types, avec exemples de calcul)
-• Performance historique complète
-• Scénarios de rendement (tous)
-• Stratégie d'investissement détaillée
-• Informations opérationnelles (souscription/rachat)
-• Acteurs (société de gestion, dépositaire, etc)
-• Documents et contacts
-• Conformité réglementaire
-
-IMPORTANT:
-- Extraire TOUS les chiffres, pourcentages, montants
-- Extraire TOUTES les dates
-- Extraire TOUTES les descriptions et explications
-- Si une info est absente: mettre null
-- Pourcentages: format décimal (5% = 5.00)
-- Être exhaustif et précis
-
-Retourne UNIQUEMENT le JSON complet, sans texte d'introduction.`,
+        content: "Analyse ce document PRIIPS/KID et extrais TOUTES les données.\n\nPOINTS CRITIQUES À EXTRAIRE:\n1. TABLEAU DES SCÉNARIOS - chaque ligne avec montants et rendements exacts\n2. TABLEAU DES FRAIS - tous les coûts avec montants précis\n3. INDICATEUR DE RISQUE - niveau 1-7 avec description\n4. INFORMATIONS PRODUIT - ISIN, indice, horizon\n\nATTENTION aux scénarios:\n- Scénario de tensions (stress): extraire les 4 valeurs\n- Scénario défavorable: extraire les 4 valeurs\n- Scénario intermédiaire: extraire les 4 valeurs\n- Scénario favorable: extraire les 4 valeurs\n\nRetourne uniquement le JSON, sans texte.",
         attachments: [{
           file_id: file.id,
           tools: [{ type: "file_search" }],
@@ -401,114 +177,84 @@ Retourne UNIQUEMENT le JSON complet, sans texte d'introduction.`,
       }],
     });
     
-    // 6. Lancer l'analyse
-    console.log(`⚡ Analyse GPT-4o...`);
+    // 5. Exécuter
+    console.log("⚡ Analyse...");
     const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
       assistant_id: assistant.id,
-      max_prompt_tokens: 20000,
-      max_completion_tokens: 16000,
+      max_prompt_tokens: 25000,
+      max_completion_tokens: 6000,
     });
     
-    if (run.status !== 'completed') {
-      throw new Error(`Run échoué: ${run.status}`);
+    if (run.status !== "completed") {
+      throw new Error("Échec: " + run.status);
     }
     
-    // 7. Récupérer la réponse
+    // 6. Récupérer réponse
     const messages = await openai.beta.threads.messages.list(thread.id);
-    const assistantMessage = messages.data.find(m => m.role === 'assistant');
+    const msg = messages.data.find(m => m.role === "assistant");
     
-    if (!assistantMessage?.content[0] || assistantMessage.content[0].type !== 'text') {
-      throw new Error("Pas de réponse de GPT-5");
+    if (!msg?.content[0] || msg.content[0].type !== "text") {
+      throw new Error("Pas de réponse");
     }
     
-    let rawResponse = assistantMessage.content[0].text.value;
+    // 7. Nettoyer et parser
+    let raw = msg.content[0].text.value;
+    raw = raw.replace(/【[^】]*】/g, ""); // Supprimer citations OpenAI
     
-    // 8. Extraire le JSON de la réponse
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error("Pas de JSON dans la réponse GPT-4o");
+      throw new Error("Pas de JSON");
     }
-    rawResponse = jsonMatch[0];
     
-    // 9. Parser
-    const extractedData: FinancialDocument = JSON.parse(rawResponse);
+    const data = JSON.parse(jsonMatch[0]);
     
-    // 10. Quality check avancé
-    const criticalChecks = {
-      metadata: extractedData.metadata?.documentName ? 1 : 0,
-      identite: extractedData.identite?.produit?.nom ? 1 : 0,
-      isin: extractedData.identite?.produit?.isin ? 1 : 0,
-      emetteur: extractedData.identite?.emetteur?.nom ? 1 : 0,
-      risque: extractedData.risque?.indicateurSynthetique?.niveau > 0 ? 1 : 0,
-      fraisGestion: extractedData.frais?.gestion?.tauxAnnuel >= 0 ? 1 : 0,
-      fraisTotal: extractedData.frais?.total?.annuel >= 0 ? 1 : 0,
-      strategie: extractedData.strategie?.objectifGestion ? 1 : 0,
-      scenarios: extractedData.scenarios?.intermediaire ? 1 : 0,
-      operationnel: extractedData.operationnel?.souscription ? 1 : 0,
+    // 8. Score qualité
+    const checks = {
+      nom: data.produit?.nom ? 1 : 0,
+      isin: data.produit?.isin ? 1 : 0,
+      indice: data.produit?.indiceBenchmark ? 1 : 0,
+      emetteur: data.emetteur?.nom ? 1 : 0,
+      risque: data.risque?.niveau > 0 ? 1 : 0,
+      fraisGestion: data.frais?.gestionAnnuelle?.taux >= 0 ? 1 : 0,
+      fraisTotal: data.frais?.totalAnnuel?.taux >= 0 ? 1 : 0,
+      scenarioStress: data.scenarios?.stress?.montantHorizon > 0 ? 1 : 0,
+      scenarioInterm: data.scenarios?.intermediaire?.montantHorizon > 0 ? 1 : 0,
+      strategie: data.strategie?.objectif ? 1 : 0,
     };
     
-    const criticalFields = Object.values(criticalChecks).reduce((a, b) => a + b, 0);
-    const totalChecks = Object.keys(criticalChecks).length;
-    const qualityScore = criticalFields / totalChecks;
+    const score = Object.values(checks).reduce((a, b) => a + b, 0);
+    const quality = score / Object.keys(checks).length;
+    
     const duration = Date.now() - startTime;
+    console.log("✅ Terminé:", duration + "ms - Qualité:", (quality * 100).toFixed(0) + "%");
     
-    // Compter les champs extraits
-    const countFields = (obj: any): number => {
-      if (!obj) return 0;
-      return Object.values(obj).reduce<number>((count, val) => {
-        if (val === null || val === undefined || val === '') return count;
-        if (typeof val === 'object') return count + countFields(val);
-        return count + 1;
-      }, 0);
-    };
-    
-    const totalFieldsExtracted = countFields(extractedData);
-    
-    console.log(`✅ Terminé: ${duration}ms`);
-    console.log(`   📊 Qualité: ${criticalFields}/${totalChecks} sections (${(qualityScore * 100).toFixed(0)}%)`);
-    console.log(`   📈 Champs extraits: ${totalFieldsExtracted}`);
-    // 11. Nettoyer
-    console.log(`🗑️ Nettoyage...`);
+    // 9. Cleanup
     try {
-      await openai.beta.assistants.delete(assistant.id);
-      await openai.beta.threads.delete(thread.id);
-      await openai.files.delete(file.id);
-      console.log(`✅ Ressources supprimées`);
-    } catch (err) {
-      console.warn(`⚠️ Erreur nettoyage:`, err);
+      await Promise.all([
+        openai.beta.assistants.delete(assistant.id),
+        openai.beta.threads.delete(thread.id),
+        openai.files.delete(file.id),
+      ]);
+    } catch (e) {
+      // Ignore cleanup errors
     }
     
-    // 12. Enrichir et retourner
-    const enrichedData: FinancialDocument = {
-      ...extractedData,
-      metadata: {
-        ...extractedData.metadata,
-        documentName: fileName,
-      },
-      extraction: {
-        success: true,
-        confidence: qualityScore,
-        champsExtraits: totalFieldsExtracted,
-        champsManquants: Object.entries(criticalChecks)
-          .filter(([_, val]) => val === 0)
-          .map(([key]) => key),
-        errors: [],
-        warnings: [],
-        qualityScore,
-      },
-    };
+    // 10. Retourner
+    return NextResponse.json({
+      ...data,
+      _meta: {
+        fichier: fileName,
+        qualite: quality,
+        dureeMs: duration,
+        dateExtraction: new Date().toISOString(),
+      }
+    });
     
-    return NextResponse.json(enrichedData);
-    
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error(`\n❌ ERREUR (${duration}ms):`, error.message);
-    
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("❌ ERREUR:", errorMessage);
     return NextResponse.json(
-      { 
-        error: "Erreur extraction",
-        details: error.message,
-      },
+      { error: "Erreur extraction", details: errorMessage },
       { status: 500 }
     );
   }

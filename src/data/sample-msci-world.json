@@ -2,6 +2,7 @@
   "schemaVersion": "1.0",
   "frontendProductName": "ETF MSCI World",
   "productType": "ETF",
+  "distributorName": "BlackRock",
   "documentInfo": {
     "documentType": "PRIIPs KID",
     "language": "fr",

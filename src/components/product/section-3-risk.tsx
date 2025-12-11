@@ -7,9 +7,10 @@ interface Section3RiskProps {
   risk: Risk;
   historicalPerformance?: HistoricalPerformance;
   productType: string;
+  distributorName?: string;
 }
 
-export function Section3Risk({ risk, historicalPerformance, productType }: Section3RiskProps) {
+export function Section3Risk({ risk, historicalPerformance, productType, distributorName }: Section3RiskProps) {
   // Générer l'échelle de risque 1-7
   const riskScale = Array.from({ length: 7 }, (_, i) => i + 1);
   
@@ -26,7 +27,7 @@ export function Section3Risk({ risk, historicalPerformance, productType }: Secti
     if (productType === "ETF") {
       return {
         title: "Aucune protection du capital",
-        description: "Comme tous les ETF, ce produit n'offre aucune garantie de capital. Vous pouvez potentiellement perdre tout ou partie de votre investissement initial.",
+        description: "Comme tous les ETF, ce produit n'offre aucune garantie de capital. Vous pouvez potentiellement perdre tout ou partie de votre investissement initial, si l'indice réplique connaît une forte baisse.",
         icon: AlertTriangle,
         bgColor: "bg-red-50",
         borderColor: "border-red-200",
@@ -86,9 +87,16 @@ export function Section3Risk({ risk, historicalPerformance, productType }: Secti
           })}
         </div>
         
-        <p className="text-xs text-gray-600 text-center">
-          Échelle de risque : 1 (risque le plus faible) à 7 (risque le plus élevé)
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs text-gray-600 text-center">
+            Échelle de risque : 1 (risque le plus faible) à 7 (risque le plus élevé)
+          </p>
+          {distributorName && (
+            <p className="text-xs text-gray-600 text-center italic">
+              Niveau de risque établi par le distributeur {distributorName}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Message général sur le risque du type de produit */}

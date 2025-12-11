@@ -2,6 +2,7 @@
   "schemaVersion": "1.0",
   "frontendProductName": "ETF S&P 500 Acc",
   "productType": "ETF",
+  "distributorName": "Amundi",
   "documentInfo": {
     "documentType": "PRIIPs KID",
     "language": "fr",

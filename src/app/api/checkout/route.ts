@@ -3,9 +3,12 @@ import Stripe from "stripe";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-});
+// Lazy initialization to avoid build-time errors when env vars are not available
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-11-17.clover",
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
       sessionParams.customer_email = user.email;
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    const session = await getStripe().checkout.sessions.create(sessionParams);
 
     // Sauvegarder le checkout session ID
     await supabase

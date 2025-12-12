@@ -2,18 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-});
+// Lazy initialization to avoid build-time errors when env vars are not available
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-11-17.clover",
+  });
+}
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+function getWebhookSecret() {
+  return process.env.STRIPE_WEBHOOK_SECRET!;
+}
 
 // Client Supabase admin pour les webhooks (pas de cookies ici)
 // Note: En production, utilise SUPABASE_SERVICE_ROLE_KEY pour bypasser RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // IMPORTANT: Vérifier la signature du webhook
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret());
     } catch (err) {
       console.error("Webhook signature verification failed:", err);
       return NextResponse.json(
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
           console.log(`Payment successful for document ${documentId} by user ${userId}`);
           
           // Mettre à jour le document avec payment_status='paid'
-          const { error: updateError } = await supabaseAdmin
+          const { error: updateError } = await getSupabaseAdmin()
             .from("documents")
             .update({
               payment_status: "paid",

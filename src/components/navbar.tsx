@@ -65,7 +65,6 @@ export function Navbar() {
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <Sparkles className="w-4 h-4" />
             <span>Produit ETF</span>
           </Link>
         </nav>

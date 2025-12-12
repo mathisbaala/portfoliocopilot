@@ -69,9 +69,9 @@ export default function ExtractedProductPage() {
               {error || "Le produit demandé n'existe pas ou a été supprimé."}
             </p>
           </div>
-          <Button onClick={() => router.push("/dashboard/upload")}>
+          <Button onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Retour à l&apos;upload
+            Retour au dashboard
           </Button>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function ExtractedProductPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push("/dashboard/upload")}
+                onClick={() => router.push("/dashboard")}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Retour

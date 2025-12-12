@@ -201,7 +201,7 @@ export function LegalInfo({
                     href="#"
                     className="text-sm text-blue-600 hover:text-blue-800 underline block"
                   >
-                    📄 Document d'informations clés (KID)
+                    📄 Document d&apos;informations clés (KID)
                   </a>
                   <a
                     href="#"

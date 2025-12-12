@@ -129,7 +129,7 @@ export function FinancialProductDashboard({
           <p className="text-xs text-gray-600 text-center">
             Les informations présentées sur cette page sont fournies à titre indicatif uniquement
             et ne constituent pas un conseil en investissement. Veuillez consulter un conseiller
-            financier professionnel avant de prendre toute décision d'investissement.
+            financier professionnel avant de prendre toute décision d&apos;investissement.
           </p>
         </div>
       </div>

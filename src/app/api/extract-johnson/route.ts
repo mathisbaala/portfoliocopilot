@@ -260,9 +260,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(response);
 
-  } catch (error: any) {
+  } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`❌ Erreur Johnson (${duration}ms):`, error.message);
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error(`❌ Erreur Johnson (${duration}ms):`, errorMessage);
 
     return NextResponse.json(
       {
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
           success: false,
           confidence: 0,
           processing_time_ms: duration,
-          errors: [error.message],
+          errors: [errorMessage],
         },
         metadata: {
           documentName: "",

@@ -8,8 +8,6 @@ export default function ComparisonPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [fileUrl, setFileUrl] = useState<string>("");
-  const [fileName, setFileName] = useState<string>("");
   const [dicResult, setDicResult] = useState<DICData | null>(null);
   const [johnsonResult, setJohnsonResult] = useState<JohnsonData | null>(null);
   const [error, setError] = useState<string>("");
@@ -53,8 +51,6 @@ export default function ComparisonPage() {
       }
 
       const uploadData = await uploadRes.json();
-      setFileUrl(uploadData.fileUrl);
-      setFileName(uploadData.fileName);
 
       console.log("✅ Upload réussi:", uploadData);
 
@@ -89,8 +85,8 @@ export default function ComparisonPage() {
       console.log("✅ DIC:", dicData);
       console.log("✅ Johnson:", johnsonData);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
       console.error("❌ Erreur:", err);
     } finally {
       setUploading(false);
@@ -107,7 +103,7 @@ export default function ComparisonPage() {
             🔬 Comparaison DIC vs Johnson
           </h1>
           <p className="text-gray-300">
-            Teste les deux formats d'extraction en parallèle
+            Teste les deux formats d&apos;extraction en parallèle
           </p>
         </div>
 
@@ -296,7 +292,7 @@ export default function ComparisonPage() {
                   <div className="bg-black/20 rounded-lg p-4">
                     <h3 className="text-white/70 text-sm mb-2">📚 Pitch pédagogique</h3>
                     <p className="text-white/90 text-sm italic">
-                      "{johnsonResult.pedagogical_explanation?.one_sentence_pitch || "Non disponible"}"
+                      &quot;{johnsonResult.pedagogical_explanation?.one_sentence_pitch || "Non disponible"}&quot;
                     </p>
                   </div>
 
@@ -325,7 +321,7 @@ export default function ComparisonPage() {
                 </div>
               ) : (
                 <div className="text-white/50 text-center py-8">
-                  En attente d'extraction...
+                  En attente d&apos;extraction...
                 </div>
               )}
             </div>

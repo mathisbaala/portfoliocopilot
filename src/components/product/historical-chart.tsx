@@ -93,7 +93,7 @@ export function HistoricalChart({ data }: HistoricalChartProps) {
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse" />
             <div>
-              <div className="text-sm text-gray-500">Aujourd'hui</div>
+              <div className="text-sm text-gray-500">Aujourd&apos;hui</div>
               <div className="text-2xl font-bold text-blue-600">
                 {currentPoint.value.toFixed(1)}
               </div>

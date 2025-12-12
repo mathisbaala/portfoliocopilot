@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ProductEtfDashboardV2 } from "@/components/product/product-etf-dashboard-v2";
 import { getExtractionById } from "@/lib/storage";
@@ -15,33 +15,33 @@ export default function ExtractedProductPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadProduct = useCallback(() => {
     const id = params.id as string;
     
     if (!id) {
-      setError("ID de produit manquant");
-      setLoading(false);
-      return;
+      return { error: "ID de produit manquant", product: null };
     }
 
     // Récupérer l'extraction depuis le localStorage
     const extraction = getExtractionById(id);
     
     if (!extraction) {
-      setError("Produit non trouvé. Il a peut-être été supprimé.");
-      setLoading(false);
-      return;
+      return { error: "Produit non trouvé. Il a peut-être été supprimé.", product: null };
     }
 
     if (!extraction.productData) {
-      setError("Données du produit non disponibles. Veuillez re-extraire le document.");
-      setLoading(false);
-      return;
+      return { error: "Données du produit non disponibles. Veuillez re-extraire le document.", product: null };
     }
 
-    setProduct(extraction.productData);
-    setLoading(false);
+    return { error: null, product: extraction.productData };
   }, [params.id]);
+
+  useEffect(() => {
+    const result = loadProduct();
+    setError(result.error);
+    setProduct(result.product);
+    setLoading(false);
+  }, [loadProduct]);
 
   if (loading) {
     return (

@@ -67,6 +67,7 @@ export function AuthForm({ defaultMode = "login" }: AuthFormProps) {
           );
         } else {
           toast.success("Connexion réussie !");
+          router.refresh();
           router.push("/dashboard");
         }
       } else {
@@ -75,6 +76,7 @@ export function AuthForm({ defaultMode = "login" }: AuthFormProps) {
           toast.error(error.message);
         } else {
           toast.success("Compte créé avec succès !");
+          router.refresh();
           router.push("/dashboard");
         }
       }

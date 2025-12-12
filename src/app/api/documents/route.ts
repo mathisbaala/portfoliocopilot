@@ -1,7 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
 
@@ -15,7 +15,45 @@ export async function GET() {
       );
     }
 
-    // Récupérer les documents de l'utilisateur (RLS s'applique automatiquement)
+    const { searchParams } = new URL(request.url);
+    const documentId = searchParams.get("id");
+    const action = searchParams.get("action");
+
+    // Si on demande l'URL signée d'un document spécifique
+    if (documentId && action === "url") {
+      const { data: document, error: fetchError } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("id", documentId)
+        .single();
+
+      if (fetchError || !document) {
+        return NextResponse.json(
+          { error: "Document non trouvé" },
+          { status: 404 }
+        );
+      }
+
+      // Créer l'URL signée (1 heure d'expiration)
+      const { data: signedUrlData, error: signedError } = await supabase.storage
+        .from("dic-documents")
+        .createSignedUrl(document.storage_path, 3600);
+
+      if (signedError || !signedUrlData) {
+        return NextResponse.json(
+          { error: "Impossible de créer l'URL signée" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        signedUrl: signedUrlData.signedUrl,
+        document,
+      });
+    }
+
+    // Sinon, récupérer tous les documents de l'utilisateur
     const { data: documents, error } = await supabase
       .from("documents")
       .select("*")

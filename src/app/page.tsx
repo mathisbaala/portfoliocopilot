@@ -5,8 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Upload, Sparkles, BarChart3, ArrowRight, Shield, Clock, DollarSign } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
   const features = [
       {
       icon: Upload,
@@ -75,9 +77,9 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
-            <Link href="/signup" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto group">
-                Créer un compte gratuit
+            <Link href={user ? "/dashboard" : "/signup"} className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto group" disabled={loading}>
+                {user ? "Accéder au dashboard" : "Créer un compte gratuit"}
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

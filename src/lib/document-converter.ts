@@ -13,78 +13,100 @@ import type { FinancialProduct, Scenario, DataPoint } from "@/types/financial-pr
  * Convertit un FinancialDocument extrait par l'API en FinancialProduct utilisable par le dashboard
  */
 export function convertToFinancialProduct(doc: FinancialDocument): FinancialProduct {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  const productType = determineProductType(doc);
+  const underlying = extractUnderlying(doc);
+  const frontendProductName = buildFrontendProductName(productType, underlying, doc);
+  
+  // Extraire les données depuis les deux formats possibles
+  const productName = anyDoc.produit?.nom || doc.identite?.produit?.nom || doc.identite?.produit?.nomLegal || frontendProductName;
+  const isin = anyDoc.produit?.isin || doc.identite?.produit?.isin || "ISIN non extrait";
+  const currency = anyDoc.produit?.devise || doc.identite?.produit?.devise || "EUR";
+  const emetteurNom = anyDoc.emetteur?.nom || doc.identite?.emetteur?.nom || doc.acteurs?.societeGestion?.nom;
+  const riskLevel = anyDoc.risque?.niveau || doc.risque?.indicateurSynthetique?.niveau || 4;
+  const eligiblePEA = anyDoc.produit?.eligiblePEA || doc.identite?.produit?.eligiblePEA || false;
+  const ticker = anyDoc.produit?.ticker || extractTicker(doc);
+  
   return {
     schemaVersion: "1.0",
-    frontendProductName: doc.identite?.produit?.nom || doc.metadata?.documentName || "Produit inconnu",
-    productType: determineProductType(doc),
-    distributorName: doc.identite?.emetteur?.nom || doc.acteurs?.societeGestion?.nom,
+    frontendProductName,
+    productType,
+    underlying,
+    distributorName: emetteurNom,
     
     documentInfo: {
       documentType: doc.metadata?.typeDocument || "DIC/KID",
       language: doc.metadata?.langue || "fr",
-      kidProductionDate: doc.metadata?.dateDocument || doc.metadata?.dateProduction || new Date().toISOString().split('T')[0],
+      kidProductionDate: anyDoc.produit?.dateDocument || doc.metadata?.dateDocument || doc.metadata?.dateProduction || new Date().toISOString().split('T')[0],
     },
     
     product: {
-      name: doc.identite?.produit?.nom || doc.identite?.produit?.nomLegal || "Produit sans nom",
-      isin: doc.identite?.produit?.isin || "ISIN inconnu",
-      currency: doc.identite?.produit?.devise || "EUR",
+      name: productName,
+      isin: isin,
+      currency: currency,
       descriptionShort: extractShortDescription(doc),
-      manufacturer: doc.identite?.emetteur?.nom || "Émetteur inconnu",
+      manufacturer: emetteurNom || "Émetteur inconnu",
       domicileCountry: extractCountry(doc),
       regulator: doc.metadata?.regulateur || "AMF",
     },
     
     risk: {
-      riskIndicator: doc.risque?.indicateurSynthetique?.niveau || 4,
+      riskIndicator: riskLevel,
       riskScaleMin: 1,
       riskScaleMax: 7,
       recommendedHoldingPeriodYears: extractHoldingPeriod(doc),
-      capitalGuarantee: doc.compliance?.protectionCapital?.garantie || false,
+      capitalGuarantee: anyDoc.risque?.garantieCapital || doc.compliance?.protectionCapital?.garantie || false,
       canLoseMoreThanInvested: false,
     },
     
     performanceScenarios: {
-      baseCurrency: doc.identite?.produit?.devise || "EUR",
+      baseCurrency: currency,
       baseInvestmentAmount: 10000,
       scenarios: extractScenarios(doc),
     },
     
-    costs: {
-      baseInvestmentAmount: 10000,
-      ongoingChargesPercentPerYear: doc.frais?.courantsAnnuels?.taux || doc.frais?.gestion?.tauxAnnuel || 0,
-      transactionCostsPercentPerYear: doc.frais?.transaction?.taux || 0,
-      entryFeePercent: doc.frais?.entree?.taux || 0,
-      exitFeePercent: doc.frais?.sortie?.taux || 0,
-    },
+    costs: extractCosts(doc),
     
     liquidityAndTrading: {
       tradedOnExchange: determineIfTradedOnExchange(doc),
-      mainExchange: "Euronext Paris", // Par défaut pour les produits français
-      ticker: extractTicker(doc),
+      mainExchange: "Euronext Paris",
+      ticker: ticker,
       canRedeemBeforeEndOfPeriod: doc.operationnel?.rachat?.partiel || doc.operationnel?.rachat?.total || true,
     },
     
     typeSpecific: {
       kind: determineKind(doc),
       fundType: doc.identite?.produit?.formJuridique || "UCITS",
-      category: doc.classification?.categoriesPrincipales?.[0] || "Diversifié",
+      category: doc.classification?.categoriesPrincipales?.[0] || anyDoc.produit?.classification || "Diversifié",
       index: extractIndex(doc),
       managementStyle: determineManagementStyle(doc),
-      replicationMethod: "PHYSICAL", // Par défaut
-      peaEligible: doc.identite?.produit?.eligiblePEA || false,
+      replicationMethod: "PHYSICAL",
+      peaEligible: eligiblePEA,
       distributionPolicy: determineDistributionPolicy(doc),
     },
     
-    // Performance historique (si disponible)
     historicalPerformance: extractHistoricalPerformance(doc),
   };
 }
 
 /**
  * Détermine le type de produit à partir du document (pour productType)
+ * Supporte les deux formats d'API
  */
 function determineProductType(doc: FinancialDocument): "ETF" | "OPCVM" | "FCP" | "SICAV" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  // Nouveau format: produit.typeInstrument
+  const typeInstrument = anyDoc.produit?.typeInstrument?.toUpperCase() || "";
+  if (typeInstrument.includes("ETF")) return "ETF";
+  if (typeInstrument.includes("SICAV")) return "SICAV";
+  if (typeInstrument.includes("FCP")) return "FCP";
+  if (typeInstrument.includes("OPCVM")) return "OPCVM";
+  
+  // Ancien format
   const formJuridique = doc.identite?.produit?.formJuridique?.toUpperCase() || "";
   const styleGestion = doc.classification?.styleGestion?.toLowerCase() || "";
   
@@ -102,8 +124,19 @@ function determineProductType(doc: FinancialDocument): "ETF" | "OPCVM" | "FCP" |
 
 /**
  * Détermine le kind pour typeSpecific (ETF, OPCVM ou FCP seulement)
+ * Supporte les deux formats d'API
  */
 function determineKind(doc: FinancialDocument): "ETF" | "OPCVM" | "FCP" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  // Nouveau format
+  const typeInstrument = anyDoc.produit?.typeInstrument?.toUpperCase() || "";
+  if (typeInstrument.includes("ETF")) return "ETF";
+  if (typeInstrument.includes("FCP")) return "FCP";
+  if (typeInstrument.includes("OPCVM")) return "OPCVM";
+  
+  // Ancien format
   const formJuridique = doc.identite?.produit?.formJuridique?.toUpperCase() || "";
   const styleGestion = doc.classification?.styleGestion?.toLowerCase() || "";
   
@@ -114,6 +147,126 @@ function determineKind(doc: FinancialDocument): "ETF" | "OPCVM" | "FCP" {
     return "FCP";
   }
   return "OPCVM";
+}
+
+/**
+ * Extrait le sous-jacent (indice de référence) du document
+ * Cherche dans plusieurs sources possibles (supporte les deux formats d'API)
+ */
+function extractUnderlying(doc: FinancialDocument): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  // 1. Nouveau format API: produit.indiceBenchmark
+  if (anyDoc.produit?.indiceBenchmark) {
+    return cleanUnderlyingName(anyDoc.produit.indiceBenchmark);
+  }
+  
+  // 2. Ancien format: classification.indiceBenchmark
+  if (doc.classification?.indiceBenchmark) {
+    return cleanUnderlyingName(doc.classification.indiceBenchmark);
+  }
+  
+  // 3. Chercher dans le nom du produit (patterns courants)
+  const productName = anyDoc.produit?.nom || doc.identite?.produit?.nom || doc.identite?.produit?.nomLegal || "";
+  const underlyingFromName = extractUnderlyingFromName(productName);
+  if (underlyingFromName) {
+    return underlyingFromName;
+  }
+  
+  // 4. Chercher dans l'objectif de gestion
+  const objectif = anyDoc.strategie?.objectif || doc.strategie?.objectifGestion || "";
+  const underlyingFromObjectif = extractUnderlyingFromName(objectif);
+  if (underlyingFromObjectif) {
+    return underlyingFromObjectif;
+  }
+  
+  // 5. Chercher dans les catégories
+  const categories = doc.classification?.categoriesPrincipales || [];
+  for (const cat of categories) {
+    const underlying = extractUnderlyingFromName(cat);
+    if (underlying) return underlying;
+  }
+  
+  // 6. Chercher dans le nom du fichier
+  const fileName = doc.metadata?.documentName || "";
+  const underlyingFromFileName = extractUnderlyingFromName(fileName);
+  if (underlyingFromFileName) {
+    return underlyingFromFileName;
+  }
+  
+  return undefined;
+}
+
+/**
+ * Nettoie le nom d'un indice pour l'affichage
+ */
+function cleanUnderlyingName(name: string): string {
+  return name
+    .replace(/\s*(Gross|Net|Price|Total Return|TR|NR|PR)\s*/gi, " ")
+    .replace(/\s*(Index|Indice)\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Extrait le sous-jacent depuis un texte (nom de produit, objectif, etc.)
+ */
+function extractUnderlyingFromName(text: string): string | undefined {
+  const upperText = text.toUpperCase();
+  
+  // Liste des indices courants à détecter
+  const knownIndices = [
+    { pattern: /S\s*&\s*P\s*500|SP500|S&P500/i, name: "S&P 500" },
+    { pattern: /CAC\s*40/i, name: "CAC 40" },
+    { pattern: /MSCI\s*WORLD/i, name: "MSCI World" },
+    { pattern: /MSCI\s*EUROPE/i, name: "MSCI Europe" },
+    { pattern: /MSCI\s*EM(ERGING)?(\s*MARKETS?)?/i, name: "MSCI Emerging Markets" },
+    { pattern: /EURO\s*STOXX\s*50/i, name: "Euro Stoxx 50" },
+    { pattern: /STOXX\s*600/i, name: "Stoxx 600" },
+    { pattern: /DAX(\s*40)?/i, name: "DAX" },
+    { pattern: /FTSE\s*100/i, name: "FTSE 100" },
+    { pattern: /NASDAQ(\s*100)?/i, name: "Nasdaq 100" },
+    { pattern: /NIKKEI(\s*225)?/i, name: "Nikkei 225" },
+    { pattern: /TOPIX/i, name: "Topix" },
+    { pattern: /HANG\s*SENG/i, name: "Hang Seng" },
+    { pattern: /MSCI\s*USA/i, name: "MSCI USA" },
+    { pattern: /RUSSELL\s*2000/i, name: "Russell 2000" },
+  ];
+  
+  for (const { pattern, name } of knownIndices) {
+    if (pattern.test(upperText)) {
+      return name;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Construit le nom frontend du produit à partir du type et du sous-jacent
+ */
+function buildFrontendProductName(
+  productType: string, 
+  underlying: string | undefined, 
+  doc: FinancialDocument
+): string {
+  // Si on a le type et le sous-jacent, construire le nom
+  if (underlying) {
+    return `${productType} ${underlying}`;
+  }
+  
+  // Sinon, essayer le nom du produit
+  if (doc.identite?.produit?.nom) {
+    return doc.identite.produit.nom;
+  }
+  
+  // Fallback sur le nom du fichier sans extension
+  if (doc.metadata?.documentName) {
+    return doc.metadata.documentName.replace(/\.(pdf|PDF)$/, "").replace(/_/g, " ");
+  }
+  
+  return `${productType} - Document analysé`;
 }
 
 /**
@@ -144,7 +297,16 @@ function extractCountry(doc: FinancialDocument): string {
  * Extrait la durée de détention recommandée
  */
 function extractHoldingPeriod(doc: FinancialDocument): number {
-  // Essayer de parser depuis les scénarios ou la stratégie
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  // Nouveau format: produit.horizonRecommande
+  if (anyDoc.produit?.horizonRecommande) {
+    const match = anyDoc.produit.horizonRecommande.match(/(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+  
+  // Ancien format
   const contexte = doc.scenarios?.contexte || "";
   const match = contexte.match(/(\d+)\s*(an|year)/i);
   if (match) {
@@ -154,13 +316,85 @@ function extractHoldingPeriod(doc: FinancialDocument): number {
 }
 
 /**
- * Extrait les scénarios de performance
+ * Extrait les frais du document (supporte les deux formats)
+ */
+function extractCosts(doc: FinancialDocument): {
+  baseInvestmentAmount: number;
+  ongoingChargesPercentPerYear: number;
+  transactionCostsPercentPerYear: number;
+  entryFeePercent: number;
+  exitFeePercent: number;
+} {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  
+  // Nouveau format de l'API
+  if (anyDoc.frais) {
+    return {
+      baseInvestmentAmount: 10000,
+      ongoingChargesPercentPerYear: anyDoc.frais.gestionAnnuelle?.taux || anyDoc.frais.totalAnnuel?.taux || doc.frais?.gestion?.tauxAnnuel || 0,
+      transactionCostsPercentPerYear: anyDoc.frais.transaction?.taux || doc.frais?.transaction?.taux || 0,
+      entryFeePercent: anyDoc.frais.entree?.taux || doc.frais?.entree?.taux || 0,
+      exitFeePercent: anyDoc.frais.sortie?.taux || doc.frais?.sortie?.taux || 0,
+    };
+  }
+  
+  // Ancien format
+  return {
+    baseInvestmentAmount: 10000,
+    ongoingChargesPercentPerYear: doc.frais?.courantsAnnuels?.taux || doc.frais?.gestion?.tauxAnnuel || 0,
+    transactionCostsPercentPerYear: doc.frais?.transaction?.taux || 0,
+    entryFeePercent: doc.frais?.entree?.taux || 0,
+    exitFeePercent: doc.frais?.sortie?.taux || 0,
+  };
+}
+
+/**
+ * Extrait les scénarios de performance (supporte les deux formats)
  */
 function extractScenarios(doc: FinancialDocument): Scenario[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
   const scenarios: Scenario[] = [];
   const baseAmount = 10000;
   
-  if (doc.scenarios) {
+  // Nouveau format de l'API
+  if (anyDoc.scenarios) {
+    if (anyDoc.scenarios.stress) {
+      scenarios.push({
+        type: "stress",
+        label: "Scénario de tensions",
+        amountAfterEndOfRecommendedPeriod: anyDoc.scenarios.stress.montantHorizon || anyDoc.scenarios.stress.montant1an || baseAmount * 0.5,
+      });
+    }
+    
+    if (anyDoc.scenarios.defavorable) {
+      scenarios.push({
+        type: "unfavourable",
+        label: "Scénario défavorable",
+        amountAfterEndOfRecommendedPeriod: anyDoc.scenarios.defavorable.montantHorizon || anyDoc.scenarios.defavorable.montant1an || baseAmount * 0.85,
+      });
+    }
+    
+    if (anyDoc.scenarios.intermediaire) {
+      scenarios.push({
+        type: "moderate",
+        label: "Scénario intermédiaire",
+        amountAfterEndOfRecommendedPeriod: anyDoc.scenarios.intermediaire.montantHorizon || anyDoc.scenarios.intermediaire.montant1an || baseAmount * 1.2,
+      });
+    }
+    
+    if (anyDoc.scenarios.favorable) {
+      scenarios.push({
+        type: "favourable",
+        label: "Scénario favorable",
+        amountAfterEndOfRecommendedPeriod: anyDoc.scenarios.favorable.montantHorizon || anyDoc.scenarios.favorable.montant1an || baseAmount * 1.5,
+      });
+    }
+  }
+  
+  // Ancien format
+  if (scenarios.length === 0 && doc.scenarios) {
     if (doc.scenarios.stress) {
       scenarios.push({
         type: "stress",

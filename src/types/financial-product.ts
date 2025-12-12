@@ -7,6 +7,8 @@ export interface FinancialProduct {
   schemaVersion: string;
   frontendProductName?: string;
   productType: "ETF" | "OPCVM" | "FCP" | "SICAV";
+  /** Sous-jacent principal (ex: "S&P 500", "CAC 40", "MSCI World") */
+  underlying?: string;
   distributorName?: string;
   documentInfo: DocumentInfo;
   product: Product;
